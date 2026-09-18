@@ -81,6 +81,9 @@ class Deck:
     pages: List[Page] = field(default_factory=list)
     style_id: str = "retro_comic"
     character_id: Optional[str] = None
+    # 内联主角：不需要照片、不需要注册，直接在 script.json 里描述。
+    # 吉祥物型账号（参考样例里的老鼠 / 章鱼哥）走这条路。
+    character: Optional["Character"] = None
     handle: str = ""                       # 抖音号，用于页脚水印
     meta: Dict[str, Any] = field(default_factory=dict)
 
@@ -90,7 +93,7 @@ class Deck:
         return [b for p in self.pages for b in p.beats]
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out = {
             "theme": self.theme,
             "title": self.title,
             "hook": self.hook,
@@ -102,9 +105,13 @@ class Deck:
             "meta": self.meta,
             "pages": [p.to_dict() for p in self.pages],
         }
+        if self.character is not None:
+            out["character"] = self.character.to_dict()
+        return out
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "Deck":
+        inline = d.get("character")
         return Deck(
             theme=str(d.get("theme", "")),
             title=str(d.get("title", "")),
@@ -113,6 +120,7 @@ class Deck:
             hashtags=[str(x) for x in d.get("hashtags", [])],
             style_id=str(d.get("style_id", "retro_comic")),
             character_id=d.get("character_id"),
+            character=Character.from_dict(inline) if isinstance(inline, dict) else None,
             handle=str(d.get("handle", "")),
             meta=dict(d.get("meta", {})),
             pages=[Page.from_dict(p) for p in d.get("pages", [])],

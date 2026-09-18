@@ -99,8 +99,13 @@ def run(
         )
         progress("script", "脚本完成：" + (deck.title or theme))
 
+    # script.json 里内联写的主角（吉祥物型账号用，不需要照片也不用注册）
+    if character is None and deck.character is not None:
+        character = deck.character
+        progress("script", "使用脚本内联主角：" + (character.name or character.id or "未命名"))
+
     deck.style_id = style.id
-    deck.character_id = character.id if character else None
+    deck.character_id = character.id if (character and character.id) else None
     deck.handle = handle
     if not deck.theme:
         deck.theme = theme
