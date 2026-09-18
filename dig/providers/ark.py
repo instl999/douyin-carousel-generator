@@ -44,6 +44,13 @@ class ArkImage(ImageEngine):
         if not conf.model:
             self.conf.model = "doubao-seedream-4-0-250828"
 
+    def is_agent_plan(self) -> bool:
+        """AgentPlan 走 /api/plan/v3，和后付费 /api/v3 的请求体不同。"""
+        return "/api/plan/" in (self.conf.base_url or "")
+
+    def is_pro(self) -> bool:
+        return "pro" in (self.conf.model or "").lower()
+
     def _ref_payload(self, refs: Sequence[str]) -> List[str]:
         out: List[str] = []
         for ref in refs[: max(1, self.conf.max_ref_images)]:
@@ -78,13 +85,23 @@ class ArkImage(ImageEngine):
         payload: Dict[str, Any] = {
             "model": self.conf.model,
             "prompt": full_prompt,
-            "size": "%dx%d" % (w, h),
+            "size": self.conf.extra.get("size") or "%dx%d" % (w, h),
             "response_format": self.conf.extra.get("response_format", "url"),
             "watermark": bool(self.conf.watermark),
-            "sequential_image_generation": "disabled",
         }
-        if seed is not None:
-            payload["seed"] = int(seed)
+
+        if self.is_agent_plan():
+            # AgentPlan(/api/plan/v3) 的 Seedream 5.0：字段和后付费 4.0 不一样
+            payload["output_format"] = self.conf.extra.get("output_format", "jpeg")
+            if not self.is_pro():
+                # 5.0 Lite 才有组图/流式；Pro 传了会报错
+                payload["sequential_image_generation"] = "disabled"
+                payload["stream"] = False
+            # AgentPlan 没有公开 seed 字段，传了会被拒
+        else:
+            payload["sequential_image_generation"] = "disabled"
+            if seed is not None:
+                payload["seed"] = int(seed)
 
         ref_list = self._ref_payload(refs or [])
         if ref_list:

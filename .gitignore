@@ -12,3 +12,6 @@ characters/*/
 styles/_ref/
 .pytest_cache/
 .DS_Store
+
+# 第三方 skill（npx skills add 装的），不进仓库
+.agents/
