@@ -1,0 +1,43 @@
+id: guochao_ink
+name: 国潮水墨
+description: 水墨 + 国潮配色，适合历史、传统文化、俗语、养生、风水类选题。
+
+prompt: >-
+  中国风国潮插画，水墨晕染结合现代平涂，毛笔勾线有提按变化，
+  宣纸质地与淡淡墨渍，主色为朱砂红、靛青、赭黄、墨黑，留白讲究，
+  人物为写意卡通造型，衣纹线条流畅，画面有传统卷轴的呼吸感
+
+negative: 西式漫画、赛博朋克、荧光色、3D渲染、照片写实
+
+palette: ["#F2EAD9", "#1F1B18", "#B23A32", "#2E4A62", "#C8A24A", "#5C7A5E"]
+
+page:
+  background: "#F2EAD9"
+  margin: 50
+  gap: 28
+  footer: 126
+
+panel:
+  border: 4
+  border_color: "#1F1B18"
+  radius: 4
+
+banner:
+  fill: "#B23A32"
+  stroke: "#1F1B18"
+  stroke_width: 3
+  text_color: "#F7F1E3"
+  radius: 8
+  font_size: 78
+  min_font_size: 32
+  top: 32
+
+watermark:
+  color: "#F7F1E3"
+  outline: "#00000066"
+
+texture:
+  grain: 0.07
+  vignette: 0.14
+  halftone: 0.0
+  edge_wear: true

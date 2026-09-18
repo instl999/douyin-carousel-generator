@@ -1,0 +1,71 @@
+# 复制成 config.yaml 后按需修改。所有项都有内置默认值，删掉也能跑。
+# 优先级：命令行参数 > 环境变量 > 本文件 > 内置默认值
+
+output_dir: output
+style: retro_comic        # 默认画风，见 styles/ 目录
+handle: ""                # 你的抖音号，会渲染到每张图的页脚
+
+page:
+  width: 1440             # 抖音图文推荐 3:4
+  height: 1920
+  format: jpg
+  quality: 92
+
+deck:
+  pages: 6                # 一套出几张（5~7）
+  panels_per_page: 2      # 每张几格（参考样例是 2）
+
+text:
+  render_mode: overlay    # overlay=中文由本地字体渲染（强烈建议）
+  font: ""                # 指定字体文件路径，留空自动找系统中文粗体
+  font_index: 0
+
+run:
+  workers: 3              # 并发生图数，网络差就调成 1
+  attempts: 3             # 单格失败重试次数
+  cache: true             # 相同 prompt 直接复用本地缓存，省钱
+  seed: null              # 填一个整数可复现同一套构图
+  fallback_to_mock: true  # 某格反复失败时用占位图兜底，保证整套能出完
+
+providers:
+  # ---- 写脚本的模型 ----
+  text:
+    provider: ark                  # ark | openai | gemini | mock
+    model: doubao-seed-1-6-250615  # 换成你自己的接入点 ID 或模型名
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    api_key_env: ARK_API_KEY
+    temperature: 0.9
+
+  # ---- 看照片/看参考图的模型（需要支持图片输入）----
+  vision:
+    provider: ark
+    model: doubao-seed-1-6-250615
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    api_key_env: ARK_API_KEY
+    temperature: 0.4
+
+  # ---- 画图的模型 ----
+  image:
+    provider: ark
+    model: doubao-seedream-4-0-250828
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    api_key_env: ARK_API_KEY
+    watermark: false
+    max_ref_images: 4              # 角色参考图最多传几张
+    timeout: 300
+
+# ---------------------------------------------------------------------------
+# 换成 OpenAI：
+# providers:
+#   text:   { provider: openai, model: gpt-4.1, base_url: https://api.openai.com/v1, api_key_env: OPENAI_API_KEY }
+#   vision: { provider: openai, model: gpt-4.1, base_url: https://api.openai.com/v1, api_key_env: OPENAI_API_KEY }
+#   image:  { provider: openai, model: gpt-image-1, base_url: https://api.openai.com/v1, api_key_env: OPENAI_API_KEY }
+#
+# 换成 Gemini（角色一致性很强）：
+# providers:
+#   text:   { provider: gemini, model: gemini-2.5-flash, api_key_env: GEMINI_API_KEY }
+#   vision: { provider: gemini, model: gemini-2.5-flash, api_key_env: GEMINI_API_KEY }
+#   image:  { provider: gemini, model: gemini-2.5-flash-image, api_key_env: GEMINI_API_KEY }
+#
+# 混搭也可以：文案用便宜的模型，画图用最好的。
+# ---------------------------------------------------------------------------

@@ -1,0 +1,53 @@
+id: retro_comic
+name: 复古双格漫画
+description: 参考样例的默认风格——做旧纸张、粗描边、半调网点、暖黄横幅。最稳、最像"老IP动画截图"。
+
+prompt: >-
+  1950-1980年代复古动画赛璐璐插画风格，粗细均匀的黑色描边，扁平上色配少量手绘阴影，
+  低饱和的暖色调（米黄、赭石、墨绿、暗红），画面覆盖细腻的半调网点和纸张颗粒，
+  轻微的印刷套色偏移，光线柔和偏暖像黄昏的白炽灯，场景细节丰富但不杂乱，
+  拟人化卡通角色造型圆润、表情夸张易读，构图像一格电影分镜
+
+negative: >-
+  写实照片、3D渲染、赛博朋克、高饱和霓虹、冷蓝色调、厚涂笔触、景深虚化过重、
+  现代UI元素、手机截图感
+
+palette: ["#EDE3CC", "#2B2622", "#E9C877", "#7B9A8B", "#B4553F", "#3E5C76"]
+
+page:
+  background: "#EDE3CC"
+  margin: 46
+  gap: 26
+  footer: 128
+
+panel:
+  border: 5
+  border_color: "#2B2622"
+  radius: 6
+  inner_shadow: true
+
+banner:
+  fill: "#E9C877"
+  stroke: "#2B2622"
+  stroke_width: 3
+  text_color: "#1C1A17"
+  radius: 18
+  font_size: 78
+  min_font_size: 32
+  top: 34
+  max_width: 0.88
+  max_lines: 2
+
+watermark:
+  enabled: true
+  text: "抖音号：{handle}"
+  color: "#FFFFFF"
+  outline: "#00000066"
+  font_size: 46
+  icon: true
+
+texture:
+  grain: 0.06
+  vignette: 0.12
+  halftone: 0.0
+  edge_wear: true
