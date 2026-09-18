@@ -92,7 +92,7 @@ def dump_json(path: str, data: Any) -> None:
 
 
 def load_json(path: str) -> Any:
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, "r", encoding="utf-8-sig") as fh:
         return json.load(fh)
 
 

@@ -83,7 +83,7 @@ def _merge(base: Dict, patch: Dict) -> Dict:
 
 
 def _read_yaml(path: str) -> Dict:
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, "r", encoding="utf-8-sig") as fh:
         raw = fh.read()
     if path.endswith(".json"):
         import json

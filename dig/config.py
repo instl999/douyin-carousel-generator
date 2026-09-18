@@ -100,7 +100,7 @@ def load_dotenv(path: str = ".env") -> None:
     if not os.path.isfile(path):
         return
     quotes = "\"" + "'"
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, "r", encoding="utf-8-sig") as fh:
         for raw in fh:
             line = raw.strip()
             if not line or line.startswith("#") or "=" not in line:
@@ -114,7 +114,7 @@ def load_dotenv(path: str = ".env") -> None:
 
 
 def _read_structured(path: str) -> Dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, "r", encoding="utf-8-sig") as fh:
         raw = fh.read()
     if path.endswith((".yaml", ".yml")):
         if yaml is None:
