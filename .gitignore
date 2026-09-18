@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+config.yaml
+config.json
+output/
+.cache/
+characters/*/
+!characters/.gitkeep
+styles/_ref/
+.pytest_cache/
+.DS_Store

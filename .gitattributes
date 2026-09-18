@@ -1,0 +1,9 @@
+# Normalise line endings: LF in the repo, native on checkout where it matters.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ttf binary
+*.otf binary
+*.ttc binary

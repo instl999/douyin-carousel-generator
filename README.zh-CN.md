@@ -1,0 +1,274 @@
+# 抖音图文轮播一键生成器
+
+[English](README.md) · [版式拆解](docs/format-analysis.zh-CN.md) · [引擎对接备忘](docs/provider-notes.zh-CN.md)
+
+一个主题 → 5~7 张「双格科普漫画」→ 直接发布。
+画风提前设定，全套统一；可以把**你自己的照片**设成固定主角，做个人 IP 连更。
+
+版式和内容规则来自对 72 张真实样例的拆解，见 [docs/format-analysis.zh-CN.md](docs/format-analysis.zh-CN.md)。
+
+```
+       主题 ──► 分镜脚本 ──► 每格底图 ──► 排版合成 ──► 可发布成图
+    (你/ChatGPT)   (LLM)      (画图模型)    (本地Pillow)   + 文案 + 话题
+                                  ▲
+                          画风预设 + 角色照片
+```
+
+---
+
+## 快速开始
+
+```bash
+pip install -r requirements.txt
+python -m dig doctor                                    # 体检：依赖、字体、Key
+python -m dig run --theme "楼盘名字里的暗号" --offline   # 不花钱先跑通流程
+```
+
+`--offline` 用内置 mock 引擎，不联网、不需要任何 API Key，出的是占位图，
+但**排版、字体、导出、文案全是真的**——先用它确认一切正常，再接真模型。
+
+接真模型：
+
+```bash
+cp config.example.yaml config.yaml     # 填模型名
+cp .env.example .env                   # 填 API Key
+python -m dig run --theme "楼盘名字里的暗号" --style retro_comic --handle your_douyin_id
+```
+
+Windows 也可以直接：
+
+```powershell
+.\run.ps1 "楼盘名字里的暗号" -Handle your_douyin_id
+```
+
+产物在 `output/时间戳_主题/`：
+
+```
+pages/01.jpg … 06.jpg   ← 直接发布的成图
+panels/                 ← 每格的原始底图（想单独换某一格时用）
+script.json             ← 分镜脚本，可以改完重出图
+caption.txt             ← 标题、发布文案、话题、逐格文案、发布前自检清单
+manifest.json           ← 这次用了什么模型/画风/种子，哪几格失败了
+```
+
+---
+
+## 三个核心能力
+
+### 1. 画风提前设定
+
+```bash
+python -m dig style list                                  # 看内置的 6 种
+python -m dig run --theme "..." --style guochao_ink        # 直接用
+python -m dig run --theme "..." --style-prompt "90年代港漫风，粗线条，高对比"
+```
+
+**用一张参考图反推画风**（你说的"指定参考风格"）：
+
+```bash
+python -m dig style add --from-image 抄来的图.jpg --name 复古港漫 --id hk_retro
+python -m dig run --theme "..." --style hk_retro
+```
+
+视觉模型只读**画风**（线条、上色、色调、质感、年代感），不读画面内容，
+结果存成 `styles/hk_retro.yaml`，可以手工微调后长期复用。
+
+内置预设：`retro_comic`（复古双格漫画，最接近参考样例）、`ins_minimal`、
+`guochao_ink`、`clay_3d`、`cyber_neon`、`storybook`。
+
+### 2. 上传照片，把你设成主角（个人 IP）
+
+```bash
+python -m dig character add --name 小圆 --photo me.jpg --stylize
+python -m dig run --theme "第一次租房避坑" --character 小圆 --handle your_douyin_id
+```
+
+角色一致性靠**三层锁定**，缺一层都容易崩人设：
+
+| 层 | 做什么 | 说明 |
+|---|---|---|
+| 文字层 | 视觉模型把照片写成"角色设定卡" | 发型、五官、常穿服装、标志性配饰，注入每一格提示词 |
+| 参考图层 | 照片作为 reference image 传给画图模型 | Seedream 4.0 / gpt-image-1 / nano-banana 都支持 |
+| 定妆图层 | `--stylize` 先生成一张**风格化定妆图** | 之后所有格以它为参考，同时锁住长相和画风 ← **效果最好** |
+
+写脚本时也会带上人设口吻，文案会更像"这个人"在说话，而不是通用科普腔。
+
+照片只存在本机 `characters/<id>/`，不上传到本工具以外的任何地方
+（当然，生图时会发给你配置的那家模型服务商）。
+
+### 3. 一键出整套
+
+`run` 一条命令跑完：写脚本 → 并发生图 → 排版 → 导出文案。
+改文案不用重新生图：
+
+```bash
+python -m dig script --theme "..."                              # 只出脚本
+# 手工改 script.json 里的 caption
+python -m dig render --script output/xxx/script.json --skip-images   # 几秒重排
+```
+
+---
+
+## 配合 ChatGPT 批量选题
+
+1. 把 [prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md) 分隔线之间的内容
+   复制进 ChatGPT，填上你的账号定位，它会产出一份 JSON 选题清单；
+2. 存成 `topics.json`；
+3. 批量出片：
+
+```bash
+python -m dig batch --file topics.json --style retro_comic --character 小圆 --handle your_douyin_id
+```
+
+选题文件长这样（`examples/topics.sample.json` 有完整示例）：
+
+```json
+[{ "theme": "楼盘名字里的那些字分别代表什么档次",
+   "angle": "从第一次看售楼部的买房小白视角",
+   "audience": "准备买房的年轻人", "pages": 6 }]
+```
+
+那份提示词里写清了这个形式的硬约束——**一个选题必须能拆出 10~14 个能画出来的并列小点**，
+拆不出来的选题做这个形式必翻车。它还会让模型当场写出前 4 格标题来自我验证。
+
+---
+
+## 网页版
+
+```bash
+python -m dig ui        # 默认 http://127.0.0.1:8765
+```
+
+浏览器里填主题、下拉选画风、拖照片登记主角、点一下出图，成图直接显示。
+只监听本机，只用标准库实现（没有 Flask/Gradio 依赖）。
+
+---
+
+## 给 Agent / 脚本调用
+
+所有命令都是纯 CLI，成功返回 0、失败返回 2（参数/配置错）或 1（批量里全失败），
+产物路径固定，适合被 Agent 编排：
+
+```bash
+python -m dig run --theme "$THEME" --character "$CHAR" --handle "$HANDLE" --out ./out/task123
+```
+
+跑完读 `./out/task123/manifest.json` 就知道结果：
+
+```json
+{
+  "title": "...", "pages": 6, "panels_per_page": 2,
+  "style": { "id": "retro_comic", "name": "复古双格漫画" },
+  "character": { "id": "小圆", "signature": "圆框眼镜 + 藏青外套" },
+  "files": ["01.jpg", "…", "06.jpg"],
+  "stats": { "panels_ok": 12, "panels_total": 12, "seconds": 96.4 },
+  "errors": []
+}
+```
+
+`errors` 非空就说明有格子是占位图兜底的，Agent 可以据此决定要不要重跑。
+
+Agent 接主角照片的完整两步（用 `--id` 显式指定，避免中文名当 key）：
+
+```bash
+python -m dig character add --id my_ip --name "小圆" --photo "$PHOTO_PATH" --stylize
+python -m dig run --theme "$THEME" --character my_ip --out ./out/task123
+```
+
+主角只需登记一次，之后所有作品复用同一个 `--character my_ip`。
+
+---
+
+## 换模型
+
+默认走**火山方舟 Ark**（豆包写文案 + Seedream 4.0 画图），改 `config.yaml`：
+
+```yaml
+providers:
+  image:
+    provider: ark                          # ark | openai | gemini | mock
+    model: doubao-seedream-4-0-250828      # 换成你自己的接入点 ID
+    api_key_env: ARK_API_KEY
+```
+
+| provider | 文案 | 画图 | 备注 |
+|---|---|---|---|
+| `ark` | 豆包 | Seedream 4.0 | 国内直连，中文理解好，支持多张参考图 |
+| `openai` | gpt-4.1 等 | gpt-image-1 | 也兼容 DeepSeek / 硅基流动 / vLLM 等任何 OpenAI 协议服务 |
+| `gemini` | gemini-2.5-flash | gemini-2.5-flash-image | 角色一致性最强 |
+| `mock` | 模板 | 占位图 | 离线，用于验证流程 |
+
+三个环节（`text` 写脚本 / `vision` 读照片 / `image` 画图）可以分别配不同家，
+比如文案用便宜的，画图用最好的。
+
+---
+
+## 常用参数
+
+```bash
+python -m dig run \
+  --theme "第一次租房避坑" \
+  --style retro_comic \          # 画风预设
+  --character 小圆 \              # 固定主角
+  --handle your_douyin_id \      # 页脚抖音号
+  --pages 6 --panels 2 \         # 6 张图，每张 2 格
+  --audience "刚毕业的大学生" \
+  --angle "从被坑过三次的过来人视角" \
+  --seed 20250918 \              # 固定种子，可复现
+  --workers 3 \                  # 并发生图
+  --zip                          # 额外打个包
+```
+
+其它命令：`script`（只出脚本）、`render`（用脚本出图）、`batch`（批量）、
+`style list/show/add`、`character list/add/stylize`、`doctor`、`ui`。
+每个都可以 `--help`。
+
+---
+
+## 设计上的两个关键取舍
+
+**中文由本地字体渲染，不让画图模型写字。**
+AI 画中文经常缺笔画、串字，一套 6 张糊一张就得重跑。本地渲染 100% 可控，
+而且改文案不用重新烧钱生图。所以每条生图提示词里都硬写了"画面中不要出现任何文字"。
+
+**每格单独生图，而不是一次生成整页。**
+让模型一次画出"两格 + 横幅 + 页脚"，构图不可控、文字必糊。
+本工具给每格单独要一张比画格大 1.15 倍的图再居中裁切，构图稳定，
+某一格不满意也可以单独重画。
+
+---
+
+## 故障排查
+
+| 现象 | 原因 / 解法 |
+|---|---|
+| 标题是方块 | 没有中文字体。`python -m dig doctor` 看提示；Linux: `apt-get install -y fonts-noto-cjk`；或把 .ttf 丢进 `assets/fonts/` |
+| 提示缺 API Key | 检查 `.env` 里的 `ARK_API_KEY`；或先用 `--offline` |
+| 某几格是占位图 | 那几格生图失败了，看 `manifest.json` 的 `errors`。重跑时相同 prompt 会命中缓存，只补失败的那几格 |
+| 主角长得不一样 | 跑 `character stylize` 生成定妆图；或换 `gemini` / `ark` 这类支持参考图的引擎 |
+| 画面里冒出乱码文字 | 正常现象，重跑那一格；或把 `--allow-text-in-image` 关掉（默认就是关的） |
+| 出图太慢 | `--workers 5`；或先 `script` 定稿文案再生图，避免反复生成 |
+
+`python -m pytest tests -q` 跑离线冒烟测试（不联网、不花钱）。
+没装 pytest 就 `python tests/test_smoke.py`。
+
+---
+
+## 目录
+
+```
+dig/                 代码
+  cli.py             命令行入口
+  pipeline.py        一键流水线
+  script_gen.py      分镜脚本生成（内容质量在这里）
+  prompt_builder.py  单格提示词拼装
+  imagegen.py        并发/重试/缓存/兜底
+  compositor.py      排版合成（横幅、边框、水印、做旧质感）
+  character.py       个人 IP 主角
+  style.py           画风预设 / 参考图反推
+  fonts.py           字体发现 + 中文避头尾排版
+  providers/         ark / openai / gemini / mock
+styles/              画风预设 YAML，可自己加
+prompts/             选题提示词（喂给 ChatGPT）
+docs/                样例拆解
+```

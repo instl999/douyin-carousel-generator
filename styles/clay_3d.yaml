@@ -1,0 +1,43 @@
+id: clay_3d
+name: 3D黏土质感
+description: 圆润可爱的黏土/毛毡质感，适合亲子、情感、萌宠、生活小技巧。
+
+prompt: >-
+  3D黏土定格动画质感，角色和物体像手工捏的软陶，表面有细微指纹和绒毛质感，
+  圆润饱满的造型，柔和的影棚布光带轻微次表面散射，浅景深，
+  马卡龙色系但不刺眼，背景是简单的纯色或渐变棚景
+
+negative: 平面插画、粗描边、做旧、水墨、写实人像、恐怖
+
+palette: ["#FDF3E7", "#3B322C", "#F2B5A0", "#A8D0C6", "#F7D794", "#B5A7E6"]
+
+page:
+  background: "#FDF3E7"
+  margin: 50
+  gap: 28
+  footer: 124
+
+panel:
+  border: 0
+  radius: 26
+  inner_shadow: true
+
+banner:
+  fill: "#FFFFFF"
+  stroke: "#3B322C"
+  stroke_width: 0
+  text_color: "#3B322C"
+  radius: 30
+  font_size: 74
+  min_font_size: 30
+  top: 38
+
+watermark:
+  color: "#FFFFFF"
+  outline: "#00000055"
+
+texture:
+  grain: 0.02
+  vignette: 0.06
+  halftone: 0.0
+  edge_wear: false

@@ -1,0 +1,43 @@
+id: storybook
+name: 童话绘本
+description: 温暖的水彩绘本风，适合情感、成长、亲子、治愈类选题。
+
+prompt: >-
+  手绘水彩绘本插画，柔和的铅笔底稿若隐若现，颜料在纸上自然晕开有水痕，
+  暖色系为主，光线像午后斜射的阳光，角色圆润友善，
+  背景简洁但有手工质感，整体温柔治愈
+
+negative: 高对比、霓虹、赛博、粗黑描边、写实照片、冷硬工业感
+
+palette: ["#FBF4E6", "#4A3B30", "#E8A87C", "#A3C4A8", "#C38D9E", "#85A8C7"]
+
+page:
+  background: "#FBF4E6"
+  margin: 52
+  gap: 28
+  footer: 122
+
+panel:
+  border: 2
+  border_color: "#4A3B30"
+  radius: 16
+
+banner:
+  fill: "#FFF8EC"
+  stroke: "#4A3B30"
+  stroke_width: 2
+  text_color: "#4A3B30"
+  radius: 22
+  font_size: 74
+  min_font_size: 30
+  top: 36
+
+watermark:
+  color: "#FFFFFF"
+  outline: "#00000055"
+
+texture:
+  grain: 0.04
+  vignette: 0.08
+  halftone: 0.0
+  edge_wear: true

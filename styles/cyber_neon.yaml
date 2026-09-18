@@ -1,0 +1,43 @@
+id: cyber_neon
+name: 赛博霓虹
+description: 高对比霓虹夜景，适合科技、AI、搞钱、未来趋势类选题。
+
+prompt: >-
+  赛博朋克插画，夜色中的霓虹灯牌与湿漉漉的反光路面，青色与品红的强对比光，
+  轻微胶片颗粒与光晕，人物被边缘光勾勒出轮廓，背景是密集的都市结构，
+  整体偏暗但主体清晰，有电影感
+
+negative: 明亮日光、柔和粉彩、水墨、做旧纸张、卡通低龄
+
+palette: ["#0E1020", "#F2F5FF", "#27E1C1", "#FF2E88", "#5B6CFF", "#FFC93C"]
+
+page:
+  background: "#0E1020"
+  margin: 44
+  gap: 24
+  footer: 126
+
+panel:
+  border: 3
+  border_color: "#27E1C1"
+  radius: 10
+
+banner:
+  fill: "#101430"
+  stroke: "#27E1C1"
+  stroke_width: 3
+  text_color: "#F2F5FF"
+  radius: 10
+  font_size: 76
+  min_font_size: 30
+  top: 34
+
+watermark:
+  color: "#F2F5FF"
+  outline: "#00000088"
+
+texture:
+  grain: 0.05
+  vignette: 0.22
+  halftone: 0.0
+  edge_wear: false

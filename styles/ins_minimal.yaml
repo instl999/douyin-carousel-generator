@@ -1,0 +1,45 @@
+id: ins_minimal
+name: 极简ins风
+description: 干净的奶油底 + 大留白 + 细描边插画，适合知识科普、职场、自我提升类。
+
+prompt: >-
+  现代极简扁平插画，细而干净的线条，大面积留白，奶油白与燕麦色为底，
+  点缀低饱和的莫兰迪色，人物造型简化但比例准确，无复杂纹理，
+  柔和的漫射光，画面安静克制，像高级杂志内页插图
+
+negative: 复古做旧、半调网点、粗黑描边、高饱和、杂乱细节、荧光色
+
+palette: ["#FAF7F0", "#2F2C28", "#C9B8A8", "#8FA3A0", "#D9A79B", "#6B7B8C"]
+
+page:
+  background: "#FAF7F0"
+  margin: 54
+  gap: 30
+  footer: 120
+
+panel:
+  border: 0
+  radius: 22
+  inner_shadow: true
+
+banner:
+  fill: "#FFFFFF"
+  stroke: "#2F2C28"
+  stroke_width: 2
+  text_color: "#2F2C28"
+  radius: 26
+  font_size: 72
+  min_font_size: 30
+  top: 40
+  max_width: 0.84
+
+watermark:
+  color: "#FFFFFF"
+  outline: "#00000044"
+  font_size: 42
+
+texture:
+  grain: 0.02
+  vignette: 0.04
+  halftone: 0.0
+  edge_wear: false
