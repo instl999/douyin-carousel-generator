@@ -170,6 +170,36 @@ def pick_size(width: int, height: int, lo: int = 512, hi: int = 4096) -> Tuple[i
     return max(8, w), max(8, h)
 
 
+def encode_reference(path: str, max_side: int = 1024, quality: int = 88) -> str:
+    """把参考图压成 JPEG data URI 再上传。
+
+    直接 base64 原图会让请求体涨到好几 MB，网关可能不回响应就断开连接
+    （表现为 "Remote end closed connection without response"）。
+    参考图只是用来锁住长相和配色，1024 边长足够。
+    """
+    import io
+
+    from PIL import Image
+
+    with Image.open(path) as im:
+        im = im.convert("RGB")
+        w, h = im.size
+        if max(w, h) > max_side:
+            scale = max_side / float(max(w, h))
+            new_size = (max(1, int(w * scale)), max(1, int(h * scale)))
+            try:
+                im = im.resize(new_size, Image.Resampling.LANCZOS)
+            except AttributeError:  # Pillow < 9.1
+                im = im.resize(new_size, Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=quality)
+    data = buf.getvalue()
+    debug("参考图 %s -> %.0f KB (jpeg)" % (os.path.basename(path), len(data) / 1024.0))
+    from ..util import b64_data_uri
+
+    return b64_data_uri(data, "image/jpeg")
+
+
 def log_payload(label: str, payload: Dict[str, Any]) -> None:
     """调试输出，自动截断 base64。"""
     clone = json.loads(json.dumps(payload, ensure_ascii=False, default=str))

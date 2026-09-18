@@ -10,10 +10,13 @@ from typing import List, Optional
 from .models import Beat, Character, Deck, StylePreset
 
 # 排版会把标题横幅贴在画面上方，所以要给它留空
-COMPOSITION = (
-    "构图要求：横向画面，主体居中偏下，画面上方三分之一留出干净的空白或简单背景"
-    "（后期要在那里贴标题条），主体不要被裁切，重要元素不要贴边。"
-)
+def composition(landscape: bool = True) -> str:
+    """构图约束。画幅方向要跟实际画格一致 —— 双格是横构图，单格是竖构图。"""
+    shape = "横向画面" if landscape else "竖向画面"
+    return (
+        "构图要求：%s，主体居中偏下，画面上方三分之一留出干净的空白或简单背景"
+        "（后期要在那里贴标题条），主体不要被裁切，重要元素不要贴边。" % shape
+    )
 
 NO_TEXT = (
     "画面中绝对不要出现任何文字、汉字、英文、数字、字幕、对话气泡、标题栏、水印、"
@@ -54,6 +57,7 @@ def panel_prompt(
     index: int,
     total: int,
     allow_in_image_text: bool = False,
+    landscape: bool = True,
 ) -> str:
     """单格提示词。"""
     lines: List[str] = [deck_bible(deck, style, character)]
@@ -63,7 +67,7 @@ def panel_prompt(
             "【本格要传达的意思】%s（用画面表达，不要把这句话写进画面）" % beat.caption
         )
     lines.append("【主题背景】整套图在讲：" + (deck.theme or deck.title))
-    lines.append(COMPOSITION)
+    lines.append(composition(landscape))
     lines.append(NO_FRAME)
     if not allow_in_image_text:
         lines.append(NO_TEXT)

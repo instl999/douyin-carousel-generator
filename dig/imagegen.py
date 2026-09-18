@@ -54,7 +54,12 @@ def generate_panels(
     beats = deck.all_beats
     total = len(beats)
     negative = panel_negative(style)
-    refs = character.ref_images() if character else []
+    base_refs = character.ref_images() if character else []
+
+    # 锚点格：先单独画第 1 格，再把它当参考图喂给后面每一格。
+    # 没有这一步，12 格里的主角会一格一个样（实测：中山装→红背心→橙上衣）。
+    lock = bool(cfg.get("run.character_lock", True)) and total > 1
+    anchor: Optional[str] = None
     seed = cfg.get("run.seed")
     use_cache = bool(cfg.get("run.cache", True))
     attempts = int(cfg.get("run.attempts", 3))
@@ -72,9 +77,19 @@ def generate_panels(
         prompt = panel_prompt(
             beat, deck, style, character, i + 1, total,
             allow_in_image_text=allow_in_image_text,
+            landscape=(width >= height),
         )
         if i == 0:
             prompt = prompt + "\n" + cover_hint(deck)
+
+        refs = list(base_refs)
+        if anchor and i != 0:
+            refs.append(anchor)
+            prompt = prompt + (
+                "\n【角色锚定】参考图里的主角就是本格的主角：长相、发型、服装、配色、"
+                "体型必须和参考图完全一致，只改变他所处的场景和动作。"
+                "不要照抄参考图的构图和背景。"
+            )
         beat.prompt = prompt
 
         dest = os.path.join(raw_dir, "%02d.png" % (i + 1))
@@ -104,6 +119,7 @@ def generate_panels(
             if use_cache:
                 _copy(dest, cache)
             beat.image = dest
+            beat.error = None      # 重跑成功要把上一轮的错误清掉，否则摘要一直报失败
             _say("  [%d/%d] 完成" % (i + 1, total))
             return True
         except Exception as exc:  # noqa: BLE001
@@ -123,11 +139,27 @@ def generate_panels(
             return False
 
     log("开始生成 %d 格底图（%d 并发，尺寸 %dx%d）…" % (total, workers, width, height))
-    if workers == 1:
-        results = [job(item) for item in enumerate(beats)]
-    else:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            results = list(pool.map(job, list(enumerate(beats))))
+
+    pending = list(enumerate(beats))
+    results: List[bool] = []
+
+    if lock:
+        # 第 1 格必须先单独跑完，后面才有锚点可用
+        log("  先画第 1 格作为角色锚点…")
+        first = pending.pop(0)
+        results.append(job(first))
+        if beats[0].image and os.path.isfile(beats[0].image) and not beats[0].error:
+            anchor = beats[0].image
+            log("  角色锚点就位，后续 %d 格以它为参考图" % len(pending))
+        else:
+            warn("第 1 格没画成，跳过角色锚定，后面各格会各画各的")
+
+    if pending:
+        if workers == 1:
+            results.extend(job(item) for item in pending)
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                results.extend(pool.map(job, pending))
 
     ok = sum(1 for r in results if r)
     return ok, total

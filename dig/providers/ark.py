@@ -10,12 +10,20 @@
 from __future__ import annotations
 
 import base64
+import math
 import os
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..config import ProviderConf
 from ..util import DigError, b64_data_uri, debug, guess_mime, read_bytes
-from .base import ImageEngine, http_download, http_json, log_payload, pick_size
+from .base import (
+    ImageEngine,
+    encode_reference,
+    http_download,
+    http_json,
+    log_payload,
+    pick_size,
+)
 from .openai_compat import OpenAIChat
 
 ARK_BASE = "https://ark.cn-beijing.volces.com/api/v3"
@@ -23,6 +31,37 @@ ARK_BASE = "https://ark.cn-beijing.volces.com/api/v3"
 # Seedream 4.0 单边像素范围
 ARK_MIN_SIDE = 1280
 ARK_MAX_SIDE = 4096
+
+# AgentPlan 的 Seedream 5.0 不看单边，看总像素：低于这个值直接 400
+#   "image size must be at least 3686400 pixels"  (=1920x1920)
+ARK_PLAN_MIN_PIXELS = 3686400
+
+
+def plan_size(width: int, height: int) -> Tuple[int, int]:
+    """保持长宽比，放大到满足 AgentPlan 的最小总像素要求，并对齐到 8 的倍数。"""
+    width = max(1, int(width))
+    height = max(1, int(height))
+
+    scale = math.sqrt(ARK_PLAN_MIN_PIXELS / float(width * height))
+    if scale < 1.0:
+        scale = 1.0
+
+    def _round8(value: float) -> int:
+        return max(8, int(math.ceil(value / 8.0)) * 8)
+
+    w, h = _round8(width * scale), _round8(height * scale)
+
+    # 向上取整后仍可能差一点（极端长宽比），补到够为止
+    guard = 0
+    while w * h < ARK_PLAN_MIN_PIXELS and guard < 64:
+        w, h = _round8(w * 1.01), _round8(h * 1.01)
+        guard += 1
+
+    # 单边不超过上限；缩回来之后再确认一次总像素
+    if max(w, h) > ARK_MAX_SIDE:
+        shrink = ARK_MAX_SIDE / float(max(w, h))
+        w, h = _round8(w * shrink), _round8(h * shrink)
+    return w, h
 
 
 class ArkChat(OpenAIChat):
@@ -59,7 +98,7 @@ class ArkImage(ImageEngine):
             if ref.startswith("http://") or ref.startswith("https://"):
                 out.append(ref)
             elif os.path.isfile(ref):
-                out.append(b64_data_uri(read_bytes(ref), guess_mime(ref)))
+                out.append(encode_reference(ref, max_side=int(self.conf.extra.get("ref_max_side", 1024))))
             else:
                 debug("跳过不存在的参考图：" + ref)
         return out
@@ -75,7 +114,10 @@ class ArkImage(ImageEngine):
     ) -> bytes:
         key = self.conf.require_key()
         url = self.conf.base_url.rstrip("/") + "/images/generations"
-        w, h = pick_size(width, height, lo=ARK_MIN_SIDE, hi=ARK_MAX_SIDE)
+        if self.is_agent_plan():
+            w, h = plan_size(width, height)
+        else:
+            w, h = pick_size(width, height, lo=ARK_MIN_SIDE, hi=ARK_MAX_SIDE)
 
         # Seedream 没有独立 negative 字段，用自然语言拼在末尾
         full_prompt = prompt
