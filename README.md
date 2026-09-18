@@ -102,8 +102,28 @@ starts drifting between images:
 | Lock | Mechanism | Notes |
 |---|---|---|
 | Text | A vision model writes a "character sheet" from the photo | Hair, features, usual outfit, signature accessory — injected into every panel prompt |
-| Reference image | The photo is passed as a reference image | Supported by Seedream 4.0, gpt-image-1 edits, and Gemini image |
-| **Styled key art** | `--stylize` generates a stylised portrait first | Every later panel references *that* instead, locking identity **and** art style together — **most effective** |
+| Reference image | The photo is passed as a reference image | Supported by Seedream, gpt-image-1 edits, and Gemini image |
+| **Styled key art** | `--stylize` generates a stylised portrait first | Every later panel references *that* instead, locking identity **and** art style together |
+| **Anchor panel** | Panel 1 is generated first, then referenced by every later panel | On by default (`run.character_lock`). This is the one that actually holds a set together |
+
+The anchor panel is not optional in practice. Measured on a live 12-panel set **without**
+it, the protagonist changed on every single panel — navy Mao suit → red vest → orange
+shirt, with different faces and proportions throughout. With it, the same character held
+across all panels tested.
+
+**Mascot series need no photo.** If your protagonist is a drawn character rather than a
+real person, describe it inline in `script.json` and skip registration entirely:
+
+```json
+{
+  "character": {
+    "name": "阿鼠",
+    "sheet": "圆脸卡通小老鼠，浅米色短毛，永远穿同一件藏青色中山装：立领、胸前两个带盖口袋、白色窄袖口",
+    "signature": "藏青色中山装 + 白色窄袖口"
+  },
+  "pages": [ "…" ]
+}
+```
 
 The script writer also picks up the character's inferred voice, so the copy reads like that
 person rather than generic explainer prose.
@@ -292,12 +312,23 @@ docs/                reference-format breakdown, provider API notes
 
 ## Status
 
-Written against the provider API shapes documented in
-[docs/provider-notes.md](docs/provider-notes.md); the offline path is covered by the test
-suite in CI, while the live API calls have not been exercised against paid endpoints. If a
-request shape needs adjusting, that document names the exact field to change, and
+The **Volcengine AgentPlan** path (Seedream 5.0 Lite) is verified end-to-end against the
+live service. The offline path is covered by the test suite. The OpenAI and Gemini paths
+are written from documentation and have **not** been exercised — if a request shape needs
+adjusting, [docs/provider-notes.md](docs/provider-notes.md) names the exact field, and
 `image_extra` / `chat_extra` in `config.yaml` let you inject arbitrary payload fields
 without touching code.
+
+Two settings that matter when generating with reference images (character lock, photo
+protagonists) against AgentPlan:
+
+```yaml
+run:
+  workers: 1     # image-to-image drops connections under concurrency
+  attempts: 4    # and needs the retries
+```
+
+See the verified-behaviour table in the provider notes for why.
 
 ## License
 
