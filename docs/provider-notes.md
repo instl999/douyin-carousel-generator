@@ -2,12 +2,14 @@
 
 *[中文版](provider-notes.zh-CN.md)*
 
-**Status:** the machine this was written on had no Python runtime, so **none of the HTTP
-requests below have been exercised against live services.** The offline path (mock engine +
-compositing + export) is covered by the test suite, but field names and accepted values on
-the real APIs may need adjusting for whatever version your account has enabled. This
-document records the **exact request shape** each engine sends, so you can diff against it
-when something returns a 400.
+**Status:** the **Volcengine AgentPlan** path (Seedream 5.0 Lite) has been exercised
+end-to-end against the live service — 18 real generations across three runs. Everything in
+the AgentPlan section below is verified behaviour, including the failure modes. The OpenAI
+and Gemini paths are still **unexercised**; their request shapes are written from
+documentation.
+
+This document records the **exact request shape** each engine sends, so you can diff
+against it when something returns a 400.
 
 Every request goes through the standard library `urllib`
 ([`dig/providers/base.py`](../dig/providers/base.py)). Errors print the server's raw
@@ -59,6 +61,46 @@ is handled too.
 | `size` rejected | Seedream 4.0 wants 1280–4096 per side. Adjust `ARK_MIN_SIDE`/`ARK_MAX_SIDE` in `ark.py`, or switch to tier notation (`"size": "2K"`) via `providers.image.image_extra` |
 | Multi-reference rejected | Set `max_ref_images: 1`; older models accept a single reference |
 | Some other field needed | Add `providers.image.image_extra: {...}` in `config.yaml` — it is merged straight into the payload |
+
+### AgentPlan (`/api/plan/v3`) — verified behaviour
+
+AgentPlan is a **different API surface** from pay-as-you-go Ark. Four things differ, and
+all four were found by hitting the live service:
+
+| | Pay-as-you-go Ark | AgentPlan (Seedream 5.0 Lite) |
+|---|---|---|
+| Base URL | `/api/v3` | **`/api/plan/v3`** |
+| `size` | 1280–4096 per side | **total pixels ≥ 3,686,400** (= 1920×1920); tiers `2K`/`3K`/`4K` or `WxH` |
+| `output_format` | n/a | separate field (`jpeg`/`png`); `response_format` is fixed to `url` |
+| `stream` | n/a | required on Lite (Pro rejects it, along with `sequential_image_generation`) |
+| `seed` | supported | **not supported** — omit it |
+
+The code picks its shape from the base URL, so both surfaces work from one provider.
+
+**Under-sized requests fail loudly and usefully:**
+
+```
+HTTP 400 InvalidParameter: The parameter `size` specified in the request is not
+valid: image size must be at least 3686400 pixels
+```
+
+`plan_size()` in `ark.py` scales any panel aspect up to satisfy that while preserving the
+ratio. A 1.57:1 panel becomes 2408×1536.
+
+**Two failure modes worth knowing about:**
+
+1. **Reference images must be compressed.** Passing a raw 2408×1536 PNG as a base64 data
+   URI makes a ~0.8 MB body, and the gateway closes the connection without responding
+   (`Remote end closed connection without response`). References are now downscaled to
+   1024 px JPEG (~300 KB) before upload — tune with `providers.image.ref_max_side`.
+2. **Image-to-image does not like concurrency.** With `workers: 2`, image-to-image calls
+   dropped connections intermittently — 1 of 6 succeeded, then 3 of 6 after compression.
+   At `workers: 1` with `attempts: 4`, all 6 succeeded (one needed three tries).
+   **Set `run.workers: 1` when generating with reference images.** Text-to-image at
+   `workers: 2` was fine, so this is specific to the image-to-image path.
+
+Measured throughput: roughly **50–70 s per panel** serially, so a 12-panel set is about
+6–10 minutes.
 
 `image_extra` / `chat_extra` are the escape hatch: any unanticipated field can be injected
 from config without touching code.
