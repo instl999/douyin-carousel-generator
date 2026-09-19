@@ -15,3 +15,7 @@ styles/_ref/
 
 # 第三方 skill（npx skills add 装的），不进仓库
 .agents/
+
+# 本地工具产物，不属于产品
+skills-lock.json
+.claude/
