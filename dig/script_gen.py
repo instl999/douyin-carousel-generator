@@ -13,6 +13,8 @@ from .config import Config
 from .models import Beat, Character, Deck, Page
 from .providers.base import TextEngine
 from .util import DigError, debug, extract_json, log, warn
+from .validate import PAGES_MAX, PAGES_MIN, PANELS_MAX
+from .validate import SERIAL_RE as _SERIAL_RE
 
 SYSTEM = """你是抖音图文赛道的头部编导，专做「双格科普漫画」这一种形式。
 
@@ -132,17 +134,6 @@ def build_prompt(
 # 清洗 / 修复
 # --------------------------------------------------------------------------- #
 _PUNCT_TAIL = "。．.!！?？~～,，、;；"
-_SERIAL_RE = re.compile(
-    r"^\s*(?:"
-    r"\d{1,2}\s*[\.、,，:：)）]\s*"          # 1. / 2、 / 3）
-    # 「第3格：」要剥掉，但「第2条路最难走」是正常文案，所以冒号是必需的
-    r"|第\s*\d{1,2}\s*[格条张页幕]\s*[:：、]\s*"
-    r"|[①-⑩⒈-⒑]\s*"
-    r"|[-*·]\s+"
-    r")"
-)
-
-
 # 只有成对出现时才算"包住整句"的引号，可以剥掉
 _QUOTE_PAIRS = {
     '"': '"',
@@ -270,8 +261,8 @@ def generate_script(
     audience: str = "",
     attempts: int = 2,
 ) -> Deck:
-    pages = int(max(3, min(12, pages)))
-    panels = int(max(1, min(3, panels)))
+    pages = int(max(PAGES_MIN, min(PAGES_MAX, pages)))
+    panels = int(max(1, min(PANELS_MAX, panels)))
     prompt = build_prompt(theme, pages, panels, character, style_name, angle, audience)
 
     last_err: Optional[Exception] = None

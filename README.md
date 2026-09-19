@@ -2,7 +2,7 @@
 
 **One topic in → a ready-to-post set of 5–7 Douyin carousel images out.**
 
-[中文文档](README.zh-CN.md) · [Format breakdown](docs/format-analysis.md) · [Provider notes](docs/provider-notes.md)
+[中文文档](README.zh-CN.md) · [**Agent contract**](AGENTS.md) · [Format breakdown](docs/format-analysis.md) · [Provider notes](docs/provider-notes.md)
 
 Generates the "two-panel explainer comic" (双格科普漫画) format that performs well on
 Douyin: each image is split into two panels, each panel carries one short caption banner,
@@ -145,6 +145,51 @@ python -m dig render --script output/xxx/script.json --skip-images    # re-types
 
 ---
 
+## Guard rails
+
+Image generation bills per panel, so the tool refuses to spend on a script it can tell is
+broken. Check any script for free before generating:
+
+```bash
+python -m dig validate --script my-script.json
+```
+
+```
+体检结果：2 个错误，1 个警告
+
+✗ [caption-too-long] 第1张·第1格：短标题 23 字，超过硬上限 18
+      改法：砍到 14 字以内：「1. 这是一个非常非常长的短」
+✗ [caption-duplicate] 第3张·第1格：和 第2张·第1格 的短标题完全重复：「重复的标题」
+      改法：每一格必须给新信息，重复一格就掉一批观众
+△ [no-character] 脚本：没有设定主角，整套图的人物会一格一个样
+      改法：在 script.json 里加 character 块（吉祥物不需要照片）
+```
+
+`run` and `render` apply the same checks and **refuse to start** on errors. Warnings print
+and continue. `--strict` promotes warnings to errors; `--no-validate` skips the lot, which
+you should not need.
+
+What it catches: captions over length, serial-numbered captions, duplicates, unbalanced
+quotes, empty or too-thin scenes, scenes asking for text the renderer forbids, uneven panel
+counts, page counts outside the workable range, and a missing character block.
+
+Other rails that are just on:
+
+- **Reference images force serial generation.** Image-to-image drops connections under
+  concurrency, so `workers` is pinned to 1 whenever a character is in play.
+- **Preflight** checks the API key, the model id and the CJK font, and prints the panel
+  count and time estimate, before the first billed call.
+- **Caching.** Re-running a script only regenerates panels whose prompt changed.
+- **Failed panels fall back** to placeholder art so a set always completes, with the
+  failures listed in `manifest.json`.
+
+Driving this from an agent? [AGENTS.md](AGENTS.md) is the operating contract, and
+[schema/script.schema.json](schema/script.schema.json) plus
+[examples/script.minimal.json](examples/script.minimal.json) are the machine-readable
+templates.
+
+---
+
 ## Batch topics with ChatGPT
 
 1. Copy the content between the `---` rules in
@@ -252,7 +297,7 @@ python -m dig run \
   --zip                          # also produce a zip
 ```
 
-Other commands: `script`, `render`, `batch`, `style list|show|add`,
+Other commands: `script`, `render`, `validate`, `batch`, `style list|show|add`,
 `character list|add|stylize`, `doctor`, `ui`. All support `--help`.
 
 ---

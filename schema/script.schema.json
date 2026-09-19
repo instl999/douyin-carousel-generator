@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/instl999/douyin-image-gen/schema/script.schema.json",
+  "title": "douyin-image-gen script",
+  "description": "A shot script for one Douyin two-panel explainer-comic carousel. Feed it to `python -m dig render --script <file>`. Run `python -m dig validate --script <file>` first: it enforces rules this schema cannot express, such as caption length and duplicate detection.",
+  "type": "object",
+  "required": ["theme", "pages"],
+  "properties": {
+    "theme": {
+      "type": "string",
+      "minLength": 2,
+      "description": "The single theme the whole set covers, in one sentence."
+    },
+    "title": {
+      "type": "string",
+      "description": "Post title, 10-18 Chinese characters, with a hook."
+    },
+    "hook": { "type": "string", "description": "First line of the post copy." },
+    "caption": { "type": "string", "description": "Post body, 2-4 lines, colloquial." },
+    "hashtags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "maxItems": 8
+    },
+    "style_id": {
+      "type": "string",
+      "description": "Preset id from styles/. Wins unless --style is passed on the CLI.",
+      "default": "retro_comic"
+    },
+    "handle": {
+      "type": "string",
+      "description": "Douyin ID for the footer watermark. Empty means no watermark."
+    },
+    "character_id": {
+      "type": ["string", "null"],
+      "description": "A character registered via `dig character add`. Use `character` instead for mascots."
+    },
+    "character": {
+      "type": "object",
+      "description": "Inline protagonist. No photo, no registration. Strongly recommended: without one the character changes on every panel.",
+      "required": ["sheet"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sheet": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Appearance, 60+ Chinese characters: face, hair, eyes, usual outfit, signature accessory. Injected into every panel prompt."
+        },
+        "signature": {
+          "type": "string",
+          "description": "1-2 anchor elements that must appear in every panel, e.g. 红围巾 + 圆眼镜."
+        },
+        "persona": { "type": "string" },
+        "use_photo_as_ref": { "type": "boolean", "default": true }
+      }
+    },
+    "meta": { "type": "object" },
+    "pages": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 10,
+      "description": "5-7 is the working range for this format.",
+      "items": {
+        "type": "object",
+        "required": ["beats"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 1 },
+          "layout": { "type": "string", "enum": ["duo", "solo"], "default": "duo" },
+          "beats": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "description": "Keep this count identical on every page. 2 is the reference format.",
+            "items": {
+              "type": "object",
+              "required": ["caption", "scene"],
+              "properties": {
+                "caption": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 18,
+                  "description": "The banner line drawn onto the panel. 5-14 Chinese characters. No serial numbers. Must be unique across the set, and parallel in structure with the others."
+                },
+                "scene": {
+                  "type": "string",
+                  "minLength": 8,
+                  "description": "What to draw: who + where + doing what + mood, 30-60 Chinese characters. Refer to the protagonist as 主角. Never ask for text, signs or lettering in the image."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "Operator note. Not rendered."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -138,6 +138,13 @@ def generate_panels(
                     warn("占位图也失败了：%s" % exc2)
             return False
 
+    # 图生图（角色锚定 / 照片主角）在并发下会被网关掐断连接，实测 workers=2 时
+    # 6 格只成 1~3 格。除非明确关掉，否则带参考图时一律串行。
+    if workers > 1 and (lock or base_refs) and bool(cfg.get("run.serial_when_refs", True)):
+        warn("本次要用参考图锁角色，已自动把并发从 %d 降到 1（图生图并发会被掐断）。"
+             "确认你的服务商不受影响可设 run.serial_when_refs: false" % workers)
+        workers = 1
+
     log("开始生成 %d 格底图（%d 并发，尺寸 %dx%d）…" % (total, workers, width, height))
 
     pending = list(enumerate(beats))
