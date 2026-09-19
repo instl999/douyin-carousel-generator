@@ -1,6 +1,6 @@
 # 抖音图文轮播一键生成器
 
-[English](README.md) · [版式拆解](docs/format-analysis.zh-CN.md) · [引擎对接备忘](docs/provider-notes.zh-CN.md)
+[English](README.md) · [**Agent 使用契约**](AGENTS.md) · [版式拆解](docs/format-analysis.zh-CN.md) · [引擎对接备忘](docs/provider-notes.zh-CN.md)
 
 一个主题 → 5~7 张「双格科普漫画」→ 直接发布。
 画风提前设定，全套统一；可以把**你自己的照片**设成固定主角，做个人 IP 连更。
@@ -83,13 +83,31 @@ python -m dig character add --name 小圆 --photo me.jpg --stylize
 python -m dig run --theme "第一次租房避坑" --character 小圆 --handle your_douyin_id
 ```
 
-角色一致性靠**三层锁定**，缺一层都容易崩人设：
+角色一致性靠**四层锁定**，缺一层都容易崩人设：
 
 | 层 | 做什么 | 说明 |
 |---|---|---|
 | 文字层 | 视觉模型把照片写成"角色设定卡" | 发型、五官、常穿服装、标志性配饰，注入每一格提示词 |
-| 参考图层 | 照片作为 reference image 传给画图模型 | Seedream 4.0 / gpt-image-1 / nano-banana 都支持 |
-| 定妆图层 | `--stylize` 先生成一张**风格化定妆图** | 之后所有格以它为参考，同时锁住长相和画风 ← **效果最好** |
+| 参考图层 | 照片作为 reference image 传给画图模型 | Seedream / gpt-image-1 / nano-banana 都支持 |
+| 定妆图层 | `--stylize` 先生成一张**风格化定妆图** | 之后所有格以它为参考，同时锁住长相和画风 |
+| **锚点格** | 先画第 1 格，再把它喂给后面每一格当参考图 | 默认开启（`run.character_lock`），真正撑住一整套的是这一层 |
+
+锚点格不是可选项。实测一套 12 格**不加锚点**，主角每一格都在变 ——
+藏青中山装 → 红背心 → 橙上衣，脸型比例全不一样，整套没法用。加上之后，
+测到的每一格都是同一个人。
+
+**吉祥物账号不需要照片。** 主角是画出来的角色时，直接在 `script.json` 里写：
+
+```json
+{
+  "character": {
+    "name": "阿鼠",
+    "sheet": "圆脸卡通小老鼠，浅米色短毛，永远穿同一件藏青色中山装：立领、胸前两个带盖口袋、白色窄袖口",
+    "signature": "藏青色中山装 + 白色窄袖口"
+  },
+  "pages": [ "…" ]
+}
+```
 
 写脚本时也会带上人设口吻，文案会更像"这个人"在说话，而不是通用科普腔。
 
@@ -106,6 +124,45 @@ python -m dig script --theme "..."                              # 只出脚本
 # 手工改 script.json 里的 caption
 python -m dig render --script output/xxx/script.json --skip-images   # 几秒重排
 ```
+
+---
+
+## 安全栏：生图之前先体检
+
+生图按格计费，所以脚本里能提前查出来的问题，一律不让它烧到钱上。
+体检是免费的：
+
+```bash
+python -m dig validate --script my-script.json
+```
+
+```
+体检结果：2 个错误，1 个警告
+
+✗ [caption-too-long] 第1张·第1格：短标题 23 字，超过硬上限 18
+      改法：砍到 14 字以内：「1. 这是一个非常非常长的短」
+✗ [caption-duplicate] 第3张·第1格：和 第2张·第1格 的短标题完全重复：「重复的标题」
+      改法：每一格必须给新信息，重复一格就掉一批观众
+△ [no-character] 脚本：没有设定主角，整套图的人物会一格一个样
+      改法：在 script.json 里加 character 块（吉祥物不需要照片）
+```
+
+`run` 和 `render` 会跑同样的检查，**有错误直接拦住不开工**，警告只提示不挡路。
+`--strict` 把警告也当错误；`--no-validate` 全部跳过，正常情况下用不到。
+
+查的东西：标题超长、带序号、重复、引号不成对、场景空/太薄、场景要求画文字、
+每页格数不齐、页数超范围、没设定主角。
+
+其它默认就开着的保险：
+
+- **带参考图时强制串行**：图生图并发会被网关掐断，用到主角就把 `workers` 锁成 1。
+- **预检**：开工前先查 API Key、模型 ID、中文字体，并打印格数和预计耗时。
+- **缓存**：重跑同一份脚本，只重画提示词变了的那几格。
+- **失败兜底**：某格反复失败就用占位图顶上，保证整套能出完，失败名单写进 `manifest.json`。
+
+要让 Agent 来开这个工具，先让它读 [AGENTS.md](AGENTS.md)，
+配套还有 [schema/script.schema.json](schema/script.schema.json) 和
+[examples/script.minimal.json](examples/script.minimal.json) 两个模板。
 
 ---
 
@@ -219,7 +276,7 @@ python -m dig run \
   --zip                          # 额外打个包
 ```
 
-其它命令：`script`（只出脚本）、`render`（用脚本出图）、`batch`（批量）、
+其它命令：`script`（只出脚本）、`render`（用脚本出图）、`validate`（脚本体检）、`batch`（批量）、
 `style list/show/add`、`character list/add/stylize`、`doctor`、`ui`。
 每个都可以 `--help`。
 
@@ -245,9 +302,10 @@ AI 画中文经常缺笔画、串字，一套 6 张糊一张就得重跑。本�
 | 标题是方块 | 没有中文字体。`python -m dig doctor` 看提示；Linux: `apt-get install -y fonts-noto-cjk`；或把 .ttf 丢进 `assets/fonts/` |
 | 提示缺 API Key | 检查 `.env` 里的 `ARK_API_KEY`；或先用 `--offline` |
 | 某几格是占位图 | 那几格生图失败了，看 `manifest.json` 的 `errors`。重跑时相同 prompt 会命中缓存，只补失败的那几格 |
-| 主角长得不一样 | 跑 `character stylize` 生成定妆图；或换 `gemini` / `ark` 这类支持参考图的引擎 |
+| 主角长得不一样 | 先确认 script.json 里有 `character` 块；锚点格默认开着，别关 |
 | 画面里冒出乱码文字 | 正常现象，重跑那一格；或把 `--allow-text-in-image` 关掉（默认就是关的） |
-| 出图太慢 | `--workers 5`；或先 `script` 定稿文案再生图，避免反复生成 |
+| 连接被掐断 | 图生图并发的问题，`run.workers` 设 1、`run.attempts` 设 4 |
+| 出图太慢 | 用到主角时必须串行，急不来；先 `script` 定稿文案再生图，避免反复生成 |
 
 `python -m pytest tests -q` 跑离线冒烟测试（不联网、不花钱）。
 没装 pytest 就 `python tests/test_smoke.py`。

@@ -8,12 +8,12 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
-from . import compositor, export, imagegen, script_gen, style as style_mod
+from . import compositor, export, imagegen, script_gen, style as style_mod, validate
 from .character import load_character
 from .config import Config
 from .models import Character, Deck, StylePreset
 from .providers import make_image_engine, make_text_engine
-from .util import DigError, dump_json, ensure_dir, load_json, log, slugify, timestamp
+from .util import DigError, dump_json, ensure_dir, load_json, log, slugify, timestamp, warn
 
 
 def resolve_style(cfg: Config, style_id: str = "", style_prompt: str = "") -> StylePreset:
@@ -25,6 +25,85 @@ def resolve_style(cfg: Config, style_id: str = "", style_prompt: str = "") -> St
             return base
         return preset
     return style_mod.load_style(cfg, style_id or str(cfg.get("style", "retro_comic")))
+
+
+def read_script(path: str) -> Dict[str, Any]:
+    """读 script.json，把 JSON 语法错误翻译成人能看懂的话。"""
+    try:
+        data = load_json(path)
+    except ValueError as exc:            # JSONDecodeError 是它的子类
+        raise DigError(
+            "脚本不是合法 JSON：%s\n  位置：%s\n"
+            "  常见原因：中文引号当成了 JSON 引号、多了结尾逗号、注释没删干净。\n"
+            "  结构参考：schema/script.schema.json" % (path, exc)
+        ) from exc
+    except OSError as exc:
+        raise DigError("读不了脚本文件 %s：%s" % (path, exc)) from exc
+    if not isinstance(data, dict):
+        raise DigError("脚本最外层必须是一个 JSON 对象 {}，现在是 %s" % type(data).__name__)
+    return data
+
+
+def clamp_pages(value, explicit: bool = False) -> int:
+    """页数收进可用区间，被改动时明确告诉用户，不要默默改。"""
+    try:
+        want = int(value)
+    except (TypeError, ValueError):
+        want = 6
+    got = max(validate.PAGES_MIN, min(validate.PAGES_MAX, want))
+    if got != want and explicit:
+        warn("--pages %d 超出范围，已按 %d 处理（这个形式 %d~%d 张最好用）"
+             % (want, got, validate.PAGES_IDEAL[0], validate.PAGES_IDEAL[1]))
+    return got
+
+
+def clamp_panels(value) -> int:
+    try:
+        want = int(value)
+    except (TypeError, ValueError):
+        want = 2
+    got = max(1, min(validate.PANELS_MAX, want))
+    if got != want:
+        warn("--panels %d 超出范围，已按 %d 处理" % (want, got))
+    return got
+
+
+def preflight(cfg: Config, deck: Deck, progress=None) -> None:
+    """开跑前的环境检查 + 预算提示。
+
+    生图按张计费，一套 12 格跑到一半才发现 Key 没配是最贵的错误，
+    所以能在花钱之前查的，全部提前查。
+    """
+    from .fonts import find_font
+
+    total = len(deck.all_beats)
+    pc = cfg.provider("image")
+
+    if pc.provider != "mock":
+        pc.require_key()          # 缺 Key 直接抛 DigError，附带怎么配
+        if not pc.model:
+            raise DigError(
+                "没有指定画图模型：config.yaml 的 providers.image.model 要填"
+                "你账号里的模型名或推理接入点 ID"
+            )
+
+    font_path, _ = find_font(preferred=str(cfg.get("text.font", "") or ""), root=cfg.root, bold=True)
+    if not font_path:
+        warn("没找到中文字体，标题会渲染成方块。先跑 python -m dig doctor 看怎么装")
+
+    # 串行时每格 50~70 秒（实测 Seedream 5.0 Lite）
+    workers = max(1, int(cfg.get("run.workers", 1)))
+    per_panel = 60.0
+    est = total * per_panel / max(1, workers)
+    msg = "本次要生成 %d 格，引擎 %s:%s，预计 %.0f 分钟" % (
+        total, pc.provider, pc.model or "-", est / 60.0
+    )
+    if pc.provider == "mock":
+        msg = "本次要生成 %d 格（mock 离线，不花钱）" % total
+    if progress:
+        progress("preflight", msg)
+    else:
+        log(msg)
 
 
 def make_out_dir(cfg: Config, deck_or_theme, tag: str = "") -> str:
@@ -52,6 +131,8 @@ def run(
     render_only: bool = False,
     zip_it: bool = False,
     allow_in_image_text: bool = False,
+    strict: bool = False,
+    skip_validation: bool = False,
     on_progress=None,
 ) -> Dict[str, Any]:
     """跑完整流程。script_path 有值时跳过脚本生成，直接渲染（改完文案重出图用）。"""
@@ -65,25 +146,30 @@ def run(
                 pass
 
     t0 = time.time()
-    style = resolve_style(cfg, style_id, style_prompt)
     character: Optional[Character] = load_character(cfg, character_id) if character_id else None
 
-    pages = int(pages or cfg.get("deck.pages", 6))
-    panels = int(panels or cfg.get("deck.panels_per_page", 2))
-    handle = handle or str(cfg.get("handle", "") or "")
+    requested_pages = pages
+    pages = clamp_pages(pages if pages else cfg.get("deck.pages", 6), requested_pages is not None)
+    panels = clamp_panels(panels if panels else cfg.get("deck.panels_per_page", 2))
 
     # ---- 1. 脚本 -------------------------------------------------------- #
     if script_path:
         if not os.path.isfile(script_path):
             raise DigError("找不到脚本文件：" + script_path)
-        deck = Deck.from_dict(load_json(script_path))
+        deck = Deck.from_dict(read_script(script_path))
         if not deck.pages:
-            raise DigError("脚本里没有 pages")
+            raise DigError(
+                "脚本里没有 pages。正确结构见 schema/script.schema.json，"
+                "最小例子见 examples/script.minimal.json"
+            )
         theme = theme or deck.theme
-        progress("script", "已载入脚本：%s（%d 张）" % (script_path, len(deck.pages)))
+        # 命令行没显式指定时，脚本自己声明的画风优先 —— 否则改脚本白改
+        style = resolve_style(cfg, style_id or deck.style_id, style_prompt)
+        progress("script", "已载入脚本：%s（%d 张，画风 %s）" % (script_path, len(deck.pages), style.id))
     else:
         if not theme:
             raise DigError("请给一个主题：--theme \"你的选题\"")
+        style = resolve_style(cfg, style_id, style_prompt)
         progress("script", "正在写分镜脚本（%d 张 × %d 格）…" % (pages, panels))
         text_engine = make_text_engine(cfg.provider("text"), cfg.root)
         deck = script_gen.generate_script(
@@ -106,9 +192,17 @@ def run(
 
     deck.style_id = style.id
     deck.character_id = character.id if (character and character.id) else None
-    deck.handle = handle
+    # handle 的优先级：命令行 > 脚本自带 > 配置文件。脚本里写了就不能被空值冲掉。
+    deck.handle = handle or deck.handle or str(cfg.get("handle", "") or "")
     if not deck.theme:
         deck.theme = theme
+
+    # ---- 体检：能在花钱之前拦住的问题，绝不留到花钱之后 ------------------ #
+    issues = validate.validate_deck(deck, style, character, strict=strict)
+    if issues:
+        progress("validate", validate.format_issues(issues))
+    if not skip_validation:
+        validate.raise_if_errors(issues)
 
     out_dir = out_dir or make_out_dir(cfg, deck)
     ensure_dir(out_dir)
@@ -121,6 +215,8 @@ def run(
 
     # ---- 2. 底图 -------------------------------------------------------- #
     ok, total = 0, len(deck.all_beats)
+    if not render_only:
+        preflight(cfg, deck, progress)
     if render_only:
         progress("panels", "跳过生图，直接用脚本里已有的底图")
         ok = sum(1 for b in deck.all_beats if b.image and os.path.isfile(b.image))

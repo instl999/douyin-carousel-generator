@@ -75,6 +75,8 @@ def cmd_run(args) -> int:
         out_dir=args.out,
         zip_it=args.zip,
         allow_in_image_text=args.allow_text_in_image,
+        strict=args.strict,
+        skip_validation=args.no_validate,
     )
     _print_result(result)
     return 0
@@ -140,6 +142,8 @@ def cmd_render(args) -> int:
         out_dir=args.out or os.path.dirname(os.path.abspath(args.script)),
         render_only=args.skip_images,
         zip_it=args.zip,
+        strict=args.strict,
+        skip_validation=args.no_validate,
     )
     _print_result(result)
     return 0
@@ -148,11 +152,41 @@ def cmd_render(args) -> int:
 # --------------------------------------------------------------------------- #
 # batch
 # --------------------------------------------------------------------------- #
+def cmd_validate(args) -> int:
+    """只体检，不生成。Agent 应该在花钱之前先跑这个。"""
+    from . import pipeline, validate
+    from .character import load_character
+    from .models import Deck
+
+    cfg = build_config(args)
+    deck = Deck.from_dict(pipeline.read_script(args.script))
+    character = deck.character
+    if not character and deck.character_id:
+        try:
+            character = load_character(cfg, deck.character_id)
+        except DigError:
+            character = None
+    style = pipeline.resolve_style(cfg, args.style or deck.style_id)
+
+    issues = validate.validate_deck(deck, style, character, strict=args.strict)
+    log(validate.format_issues(issues))
+    if validate.has_errors(issues):
+        log("")
+        log("有错误，生成会被拦下。改完再跑一次这条命令。")
+        return 2
+    log("")
+    log("可以生成了：python -m dig render --script \"%s\"" % args.script)
+    return 0
+
+
 def cmd_batch(args) -> int:
     from . import pipeline
     from .util import load_json
 
     cfg = build_config(args)
+    if args.out:
+        # 批量时 --out 是"放所有作品的父目录"，不是单个作品目录
+        cfg.set("output_dir", args.out)
     data = load_json(args.file)
     if isinstance(data, dict):
         data = data.get("topics") or data.get("items") or []
@@ -378,6 +412,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--zip", action="store_true", help="额外打包成 zip")
     r.add_argument("--allow-text-in-image", action="store_true",
                    help="允许模型在画面里写字（默认禁止，文字由排版渲染）")
+    r.add_argument("--strict", action="store_true", help="把体检警告也当成错误")
+    r.add_argument("--no-validate", action="store_true", help="跳过脚本体检（不建议）")
     r.set_defaults(func=cmd_run)
 
     # script
@@ -403,7 +439,17 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--skip-images", action="store_true", help="不重新生图，只重排文字")
     d.add_argument("--no-cache", action="store_true")
     d.add_argument("--zip", action="store_true")
+    d.add_argument("--strict", action="store_true", help="把体检警告也当成错误")
+    d.add_argument("--no-validate", action="store_true", help="跳过脚本体检（不建议）")
     d.set_defaults(func=cmd_render)
+
+    # validate
+    v = sub.add_parser("validate", help="只体检脚本，不生成（生图前先跑这个）")
+    add_common(v)
+    v.add_argument("--script", required=True, help="script.json 路径")
+    v.add_argument("--style", default="", help="按指定画风体检")
+    v.add_argument("--strict", action="store_true", help="把警告也当成错误")
+    v.set_defaults(func=cmd_validate)
 
     # batch
     b = sub.add_parser("batch", help="批量跑一批选题")
@@ -430,7 +476,8 @@ def build_parser() -> argparse.ArgumentParser:
     sa.add_argument("--from-image", dest="from_image", required=True, help="参考图路径")
     sa.add_argument("--name", default="", help="中文名字")
     sa.add_argument("--id", default="", help="预设 id（英文，用于 --style）")
-    st.set_defaults(func=cmd_style)
+    for _p in (sl, ss, sa):
+        _p.set_defaults(func=cmd_style)
 
     # character
     ch = sub.add_parser("character", help="主角（个人 IP）管理")
@@ -449,7 +496,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_common(cs)
     cs.add_argument("--id", required=True)
     cs.add_argument("--style", default="")
-    ch.set_defaults(func=cmd_character)
+    for _p in (cl, ca, cs):
+        _p.set_defaults(func=cmd_character)
 
     # doctor
     doc = sub.add_parser("doctor", help="体检：依赖、字体、Key、预设")
