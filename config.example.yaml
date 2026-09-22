@@ -26,6 +26,10 @@ run:
   cache: true             # 相同 prompt 直接复用本地缓存，省钱
   seed: null              # 填一个整数可复现同一套构图
   fallback_to_mock: true  # 某格反复失败时用占位图兜底，保证整套能出完
+  quality_check: true     # 生成后自动质检：抓"顶部大片纯色空地"这类废图
+  quality_redraws: 1      # 质检不过时，换更硬的提示词重画几次
+  character_lock: true    # 先画第1格当锚点，后面各格以它为参考图锁住主角
+  serial_when_refs: true  # 带参考图时强制串行（图生图并发会被网关掐断）
 
 providers:
   # ---- 写脚本的模型 ----
