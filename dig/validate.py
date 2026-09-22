@@ -110,6 +110,12 @@ def validate_deck(
     if len(counts) > 1:
         warn("脚本", "ragged-panels", "每页格数不一致：%s" % sorted(counts),
              "整套统一用双格（每页 2 个 beat），否则版式会忽大忽小")
+    elif counts == {1}:
+        # 单格画格是竖的，模型很容易在上方画出一大片空地；参考样例全是双格
+        warn("脚本", "solo-layout", "每页只有 1 格，和参考样例的双格版式不一样",
+             "参考样例是每页 2 格（一条作品 10~14 个信息点）。"
+             "单格画幅是竖的，模型容易在标题条底下画出大片空地，"
+             "而且信息密度只有一半。除非你确定要单格，否则改成每页 2 个 beat")
     if max(counts) > PANELS_MAX:
         err("脚本", "too-many-panels", "有页超过 %d 格" % PANELS_MAX,
             "一页最多 %d 格，再多字就看不清了" % PANELS_MAX)

@@ -24,6 +24,7 @@ class Beat:
     image: Optional[str] = None    # 渲染后填充：该格使用的底图路径
     prompt: Optional[str] = None   # 渲染后填充：实际送给模型的 prompt
     error: Optional[str] = None    # 该格生成失败时的原因
+    warning: Optional[str] = None  # 质检警告（图能用，但有瑕疵）
 
     def to_dict(self) -> Dict[str, Any]:
         return _clean(dataclasses.asdict(self))
@@ -37,6 +38,7 @@ class Beat:
             image=d.get("image"),
             prompt=d.get("prompt"),
             error=d.get("error"),
+            warning=d.get("warning"),
         )
 
 
