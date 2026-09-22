@@ -10,6 +10,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Tuple
 
+from . import quality
 from .compositor import panel_pixel_size
 from .config import Config
 from .models import Beat, Character, Deck, StylePreset
@@ -65,6 +66,8 @@ def generate_panels(
     attempts = int(cfg.get("run.attempts", 3))
     workers = max(1, int(cfg.get("run.workers", 3)))
     fallback = bool(cfg.get("run.fallback_to_mock", True))
+    check_quality = bool(cfg.get("run.quality_check", True))
+    redraws = int(cfg.get("run.quality_redraws", 1))
 
     # 每格用不同但可复现的 seed，避免 6 张图构图雷同
     def seed_for(i: int) -> Optional[int]:
@@ -86,9 +89,12 @@ def generate_panels(
         if anchor and i != 0:
             refs.append(anchor)
             prompt = prompt + (
-                "\n【角色锚定】参考图里的主角就是本格的主角：长相、发型、服装、配色、"
-                "体型必须和参考图完全一致，只改变他所处的场景和动作。"
-                "不要照抄参考图的构图和背景。"
+                "\n【角色锚定】参考图只用来抄「人」，不要抄「图」。\n"
+                "必须完全一致：主角的脸型、发型、五官、眼镜、服装款式与颜色、"
+                "配饰、体型比例、线条和上色方式。\n"
+                "必须完全不同：场景、背景、机位、景别、人物的姿势和朝向。\n"
+                "参考图里的背景元素（建筑、家具、道具、灯光）一个都不要带过来，"
+                "本格背景完全按上面【本格画面】重新画。"
             )
         beat.prompt = prompt
 
@@ -102,25 +108,45 @@ def generate_panels(
             return True
 
         try:
-            data = retry(
-                lambda: engine.generate(
-                    prompt=prompt,
-                    width=width,
-                    height=height,
-                    negative=negative,
-                    refs=refs,
-                    seed=seed_for(i),
-                ),
-                attempts=attempts,
-                label="第 %d 格生图" % (i + 1),
-            )
+            data = None
+            report = None
+            # 质检不过就换更直白的提示词重画一次，再不过就认了（别无限烧钱）
+            for attempt in range(1 + max(0, redraws)):
+                shot = prompt if attempt == 0 else prompt + quality.REDRAW_HINT
+                data = retry(
+                    lambda p=shot: engine.generate(
+                        prompt=p,
+                        width=width,
+                        height=height,
+                        negative=negative,
+                        refs=refs,
+                        seed=(None if seed_for(i) is None else seed_for(i) + attempt),
+                    ),
+                    attempts=attempts,
+                    label="第 %d 格生图" % (i + 1),
+                )
+                if not check_quality:
+                    break
+                report = quality.inspect_panel(data)
+                if report.ok:
+                    break
+                if attempt < redraws:
+                    warn("第 %d 格质检不过（%s），换更硬的提示词重画"
+                         % (i + 1, report.render()))
+
             with open(dest, "wb") as fh:
-                fh.write(data)
+                fh.write(data or b"")
             if use_cache:
                 _copy(dest, cache)
             beat.image = dest
             beat.error = None      # 重跑成功要把上一轮的错误清掉，否则摘要一直报失败
-            _say("  [%d/%d] 完成" % (i + 1, total))
+            if report is not None and not report.ok:
+                beat.warning = report.render()
+                warn("第 %d 格重画后仍有问题：%s" % (i + 1, report.render()))
+                _say("  [%d/%d] 完成（有质检警告）" % (i + 1, total))
+            else:
+                beat.warning = None
+                _say("  [%d/%d] 完成" % (i + 1, total))
             return True
         except Exception as exc:  # noqa: BLE001
             beat.error = str(exc)[:300]

@@ -175,6 +175,13 @@ counts, page counts outside the workable range, and a missing character block.
 
 Other rails that are just on:
 
+- **Every panel is inspected after generation.** The compositor lays the caption banner
+  *on top of* the artwork, so the art has to reach the top edge. Asking the model to
+  "leave space for the title" made it paint a flat void there instead — measured at
+  standard deviation below 2, in almost exactly the paper colour. Panels are now checked
+  for that and redrawn once with a blunter prompt (`run.quality_check`). The check is
+  two-dimensional on purpose: a gradient sky is flat within each scanline but varies
+  vertically, and must not be mistaken for a void.
 - **Reference images force serial generation.** Image-to-image drops connections under
   concurrency, so `workers` is pinned to 1 whenever a character is in play.
 - **Preflight** checks the API key, the model id and the CJK font, and prints the panel

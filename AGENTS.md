@@ -37,6 +37,7 @@ output that cannot be posted.
 
 | Rule | Why |
 |---|---|
+| **Two beats per page**, always | The reference format is two panels per image. A single beat per page makes the panel portrait-shaped, halves the information density, and the model tends to paint a dead area under the banner |
 | Captions are **5–14 Chinese characters** | Longer and the layout shrinks the font, so sizes differ between panels in one set |
 | **No serial numbers** in captions (`1.`, `第3格：`) | Viewers read content, not indices |
 | **Every caption unique** | This format dies on repetition — one repeated beat loses a chunk of the audience |
@@ -81,6 +82,18 @@ First beat is the hook. Last beat is the payoff — the line worth screenshottin
 `谁 + 在哪 + 在干什么 + 什么情绪`, 30–60 characters. Concrete and literal: the picture
 should state the caption, not allude to it. Vary interior/exterior and wide/close across
 the set while keeping the world consistent.
+
+**Describe a full environment, not just the person.** Name what is behind and around them
+— the far buildings, the wall, the sky, the other people. Panels are landscape and the
+caption banner is composited *on top of* the artwork, so the art must reach the top edge
+with real content. A scene that only describes a person produces a close-up with a dead
+area under the banner. This was a measured failure, not a hypothetical: the generator now
+checks every panel for it automatically (`run.quality_check`) and redraws once with a
+blunter prompt, but a scene with a described background avoids the problem outright.
+
+Good: `主角戴着黄色安全帽蹲在毛坯房里，伸手指着地面裸露的水管接口，身后是脚手架和两名正在抹灰的工人，天花板和墙面都是灰色混凝土，白天自然光`
+
+Thin: `主角在工地检查质量` — no environment, no camera distance, no light.
 
 ---
 
