@@ -104,12 +104,18 @@ starts drifting between images:
 | Text | A vision model writes a "character sheet" from the photo | Hair, features, usual outfit, signature accessory — injected into every panel prompt |
 | Reference image | The photo is passed as a reference image | Supported by Seedream, gpt-image-1 edits, and Gemini image |
 | **Styled key art** | `--stylize` generates a stylised portrait first | Every later panel references *that* instead, locking identity **and** art style together |
-| **Anchor panel** | Panel 1 is generated first, then referenced by every later panel | On by default (`run.character_lock`). This is the one that actually holds a set together |
+| **Character sheet** | One scene-free portrait on a plain background, referenced by *every* panel | On by default (`run.character_sheet`). Generated once per character × style and cached across posts |
 
-The anchor panel is not optional in practice. Measured on a live 12-panel set **without**
+Character locking is not optional in practice. Measured on a live 12-panel set **without**
 it, the protagonist changed on every single panel — navy Mao suit → red vest → orange
-shirt, with different faces and proportions throughout. With it, the same character held
-across all panels tested.
+shirt, with different faces and proportions throughout.
+
+The sheet is deliberately **scene-free**. An earlier version used panel 1 as the anchor,
+which locked identity but also leaked its *composition*: later panels inherited its
+background — brick buildings and a stray ceiling lamp turning up inside a construction
+site — and every frame drifted toward the same camera distance and pose. A plain-background
+portrait has no scene to copy, so identity stays locked while framing stays free. Panel 1
+is still used as a fallback when no sheet can be produced.
 
 **Mascot series need no photo.** If your protagonist is a drawn character rather than a
 real person, describe it inline in `script.json` and skip registration entirely:

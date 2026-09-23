@@ -10,7 +10,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Tuple
 
-from . import quality
+from . import charsheet, quality
 from .compositor import panel_pixel_size
 from .config import Config
 from .models import Beat, Character, Deck, StylePreset
@@ -61,6 +61,7 @@ def generate_panels(
     # 没有这一步，12 格里的主角会一格一个样（实测：中山装→红背心→橙上衣）。
     lock = bool(cfg.get("run.character_lock", True)) and total > 1
     anchor: Optional[str] = None
+    sheet_ref: Optional[str] = None
     seed = cfg.get("run.seed")
     use_cache = bool(cfg.get("run.cache", True))
     attempts = int(cfg.get("run.attempts", 3))
@@ -86,7 +87,13 @@ def generate_panels(
             prompt = prompt + "\n" + cover_hint(deck)
 
         refs = list(base_refs)
-        if anchor and i != 0:
+        if sheet_ref:
+            # 定妆图里没有场景，每一格（含第 1 格）都能用，构图完全自由
+            if sheet_ref not in refs:
+                refs.append(sheet_ref)
+            prompt = prompt + charsheet.ANCHOR_CLAUSE
+        elif anchor and i != 0:
+            # 退路：没有定妆图时仍用第 1 格锁人，但构图会向第 1 格靠拢
             refs.append(anchor)
             prompt = prompt + (
                 "\n【角色锚定】参考图只用来抄「人」，不要抄「图」。\n"
@@ -176,8 +183,17 @@ def generate_panels(
     pending = list(enumerate(beats))
     results: List[bool] = []
 
-    if lock:
-        # 第 1 格必须先单独跑完，后面才有锚点可用
+    # 首选：先画一张「只有人、没有场景」的定妆图当锚点。
+    # 它比"拿第 1 格当锚点"好在：没有场景可抄，也没有构图可抄，
+    # 长相被锁住的同时，每一格的机位和景别都能重新设计。
+    if lock and character is not None and bool(cfg.get("run.character_sheet", True)):
+        sheet_ref = charsheet.ensure_character_sheet(
+            character, style, engine, cfg.root, out_dir,
+            negative=negative, use_cache=use_cache,
+        )
+
+    if lock and not sheet_ref:
+        # 退路：没有角色设定、或定妆图没画成，仍用第 1 格锁人
         log("  先画第 1 格作为角色锚点…")
         first = pending.pop(0)
         results.append(job(first))

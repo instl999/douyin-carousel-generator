@@ -66,8 +66,14 @@ Put this in the script. No photo needed, no registration:
 Vague sheets do not hold. Then write every `scene` using **主角** to refer to them — never
 re-describe their appearance per panel, and never give them a different name mid-set.
 
-The tool also generates panel 1 first and feeds it to every later panel as a reference
-image (`run.character_lock`, on by default). Leave it on.
+The tool also generates a **character sheet** — one scene-free portrait on a plain
+background — and feeds it to every panel as a reference image (`run.character_lock` and
+`run.character_sheet`, both on by default). Leave them on. The sheet is cached per
+character × style, so it costs one image the first time and nothing afterwards.
+
+Because the sheet has no scene in it, your `scene` text is the *only* thing deciding
+composition. Vary it deliberately across the set — standing/crouching, interior/exterior,
+wide/close — or every panel will look like the same shot with new props.
 
 ## Writing good captions
 

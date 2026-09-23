@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install CJK fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Environment check
+        run: python -m dig doctor
+
+      - name: Run offline test suite
+        run: python -m pytest tests -q
+
+  sample:
+    name: Generate a sample set (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CJK fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Uses the built-in mock engine: no network, no API key, no cost.
+      # Art is placeholder, but layout, typography and export are the real thing.
+      - name: Generate
+        run: |
+          python -m dig run \
+            --theme "楼盘名字里的暗号" \
+            --style retro_comic \
+            --handle your_douyin_id \
+            --pages 6 --panels 2 \
+            --seed 20250918 \
+            --offline \
+            --out ./sample-output
+
+      - name: Upload sample
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-carousel
+          path: ./sample-output
+          retention-days: 14
