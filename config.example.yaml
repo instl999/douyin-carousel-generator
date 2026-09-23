@@ -28,7 +28,8 @@ run:
   fallback_to_mock: true  # 某格反复失败时用占位图兜底，保证整套能出完
   quality_check: true     # 生成后自动质检：抓"顶部大片纯色空地"这类废图
   quality_redraws: 1      # 质检不过时，换更硬的提示词重画几次
-  character_lock: true    # 先画第1格当锚点，后面各格以它为参考图锁住主角
+  character_lock: true    # 锁定主角（关掉的话 12 格里的人会一格一个样）
+  character_sheet: true   # 先画一张"只有人、没有场景"的定妆图当锚点，构图更自由
   serial_when_refs: true  # 带参考图时强制串行（图生图并发会被网关掐断）
 
 providers:
