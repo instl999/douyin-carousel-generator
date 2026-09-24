@@ -130,7 +130,7 @@ def test_full_offline_pipeline():
         for f in files:
             assert os.path.isfile(f), f
             with Image.open(f) as im:
-                assert im.size == (1440, 1920)
+                assert im.size == (int(cfg.get("page.width")), int(cfg.get("page.height")))
         assert os.path.isfile(os.path.join(result["out_dir"], "script.json"))
         assert os.path.isfile(os.path.join(result["out_dir"], "caption.txt"))
         assert os.path.isfile(os.path.join(result["out_dir"], "manifest.json"))

@@ -12,6 +12,7 @@ from typing import List, Optional, Sequence, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter
 
+from . import harmonize
 from .config import Config
 from .fonts import fit_text, find_font, load_font, text_width
 from .models import Beat, Deck, Page, StylePreset
@@ -53,8 +54,14 @@ def rgb(value, default=(0, 0, 0)) -> Tuple[int, int, int]:
 # --------------------------------------------------------------------------- #
 # 图像处理
 # --------------------------------------------------------------------------- #
-def fit_cover(img: Image.Image, box_w: int, box_h: int) -> Image.Image:
-    """等比缩放后居中裁切，铺满整个画格（不留白、不变形）。"""
+def fit_cover(img: Image.Image, box_w: int, box_h: int, sharpen: float = 0.0) -> Image.Image:
+    """等比缩放后居中裁切，铺满整个画格（不留白、不变形）。
+
+    sharpen > 0 时，在明显缩小之后补一道轻微的 USM 锐化。
+    AgentPlan 强制每格至少 370 万像素，缩到画格尺寸要缩 1.4~1.8 倍，
+    LANCZOS 缩完线条会略软；这一道把描边的利落感找回来。放大时不锐化，
+    那只会把噪点也锐化出来。
+    """
     box_w = max(1, int(box_w))
     box_h = max(1, int(box_h))
     src_w, src_h = img.size
@@ -64,6 +71,10 @@ def fit_cover(img: Image.Image, box_w: int, box_h: int) -> Image.Image:
     new_w = max(box_w, int(round(src_w * scale)))
     new_h = max(box_h, int(round(src_h * scale)))
     img = img.resize((new_w, new_h), RESAMPLE)
+    if sharpen > 0 and scale < 0.9:
+        img = img.filter(ImageFilter.UnsharpMask(
+            radius=0.9, percent=int(round(40 + 70 * min(1.0, sharpen))), threshold=3,
+        ))
     left = (new_w - box_w) // 2
     # 人物通常在画面中下部，往上留一点更安全
     top = int((new_h - box_h) * 0.42)
@@ -122,16 +133,25 @@ def _shadow(size: Tuple[int, int], box: Sequence[int], radius: int, blur: int, a
 # --------------------------------------------------------------------------- #
 # 版式计算
 # --------------------------------------------------------------------------- #
+# 所有版式常量（留白、字号、圆角…）都是按 1440x1920 设计的。
+# 换画布尺寸时按比例缩放，否则大画布上标题会显得偏小、留白偏窄。
+# 取宽高两个方向里更"紧"的那个比例，这样 9:16 这类非 3:4 画布也不会溢出。
+DESIGN_WIDTH = 1440
+DESIGN_HEIGHT = 1920
+
+
 class PageGeometry:
-    """一张成图的所有盒子位置。"""
+    """一张成图的所有盒子位置。尺寸随画布等比缩放。"""
 
     def __init__(self, width: int, height: int, style: StylePreset, panels: int):
         p = style.page
         self.width = width
         self.height = height
-        self.margin = int(p.get("margin", 46))
-        self.gap = int(p.get("gap", 26))
-        self.footer = int(p.get("footer", 128))
+        self.scale = min(width / float(DESIGN_WIDTH), height / float(DESIGN_HEIGHT))
+        k = self.scale
+        self.margin = max(1, int(round(int(p.get("margin", 46)) * k)))
+        self.gap = max(0, int(round(int(p.get("gap", 26)) * k)))
+        self.footer = max(1, int(round(int(p.get("footer", 128)) * k)))
         self.panels = max(1, int(panels))
 
         inner_w = width - self.margin * 2
@@ -172,8 +192,13 @@ def draw_banner(
     style: StylePreset,
     font_path: Optional[str],
     font_index: int,
+    scale: float = 1.0,
 ) -> None:
-    """在画格顶部画标题横幅（参考样例里的黄色/米色圆角条）。"""
+    """在画格顶部画标题横幅（参考样例里的黄色/米色圆角条）。
+
+    这一步必须在纸张质感之后做：标题条是后期贴的现代图层，参考样例里它是干净的，
+    底下的画才有印刷颗粒。反过来做会把颗粒糊到最需要清晰的那几个字上。
+    """
     conf = style.banner
     if not conf.get("enabled", True) or not text:
         return
@@ -183,8 +208,8 @@ def draw_banner(
     panel_h = y1 - y0
 
     max_ratio = float(conf.get("max_width", 0.86))
-    pad_x = int(conf.get("pad_x", 34))
-    pad_y = int(conf.get("pad_y", 18))
+    pad_x = max(1, int(round(int(conf.get("pad_x", 34)) * scale)))
+    pad_y = max(1, int(round(int(conf.get("pad_y", 18)) * scale)))
     max_text_w = panel_w * max_ratio - pad_x * 2
     max_text_h = panel_h * 0.34
 
@@ -195,8 +220,8 @@ def draw_banner(
         max_width=max_text_w,
         max_height=max_text_h,
         max_lines=int(conf.get("max_lines", 2)),
-        start_size=int(conf.get("font_size", 76)),
-        min_size=int(conf.get("min_font_size", 30)),
+        start_size=max(8, int(round(int(conf.get("font_size", 76)) * scale))),
+        min_size=max(8, int(round(int(conf.get("min_font_size", 30)) * scale))),
     )
     if not lines:
         return
@@ -206,12 +231,14 @@ def draw_banner(
     band_w = int(text_w + pad_x * 2)
     band_h = int(text_h + pad_y * 2)
     band_x = x0 + (panel_w - band_w) // 2
-    band_y = y0 + int(conf.get("top", 34))
-    radius = int(conf.get("radius", 18))
+    band_y = y0 + int(round(int(conf.get("top", 34)) * scale))
+    radius = max(0, int(round(int(conf.get("radius", 18)) * scale)))
     band = [band_x, band_y, band_x + band_w, band_y + band_h]
 
     if conf.get("shadow", True):
-        sh = _shadow(canvas.size, [band[0] + 4, band[1] + 6, band[2] + 4, band[3] + 6], radius, 10, 110)
+        off = max(1, int(round(4 * scale)))
+        sh = _shadow(canvas.size, [band[0] + off, band[1] + off + 2, band[2] + off, band[3] + off + 2],
+                     radius, max(2, int(round(10 * scale))), 110)
         canvas.paste(Image.new("RGB", canvas.size, (0, 0, 0)), (0, 0), sh)
 
     draw = ImageDraw.Draw(canvas, "RGBA")
@@ -220,7 +247,7 @@ def draw_banner(
         radius=radius,
         fill=hex_rgba(conf.get("fill", "#E9C877")),
         outline=hex_rgba(conf.get("stroke", "#2B2622")),
-        width=int(conf.get("stroke_width", 3)),
+        width=max(1, int(round(int(conf.get("stroke_width", 3)) * scale))),
     )
 
     color = hex_rgba(conf.get("text_color", "#1C1A17"))
@@ -243,6 +270,7 @@ def draw_watermark(
     handle: str,
     font_path: Optional[str],
     font_index: int,
+    scale: float = 1.0,
 ) -> None:
     """页脚：♪ 抖音号：xxxxx"""
     conf = style.watermark
@@ -250,7 +278,7 @@ def draw_watermark(
         return
 
     text = str(conf.get("text", "抖音号：{handle}")).replace("{handle}", handle)
-    size = int(conf.get("font_size", 46))
+    size = max(8, int(round(int(conf.get("font_size", 46)) * scale)))
     font = load_font(font_path, size, font_index)
     draw = ImageDraw.Draw(canvas, "RGBA")
 
@@ -353,6 +381,7 @@ def render_page(
     font_path: Optional[str] = None,
     font_index: int = 0,
     body_font_path: Optional[str] = None,
+    adjust=None,
 ) -> str:
     width = int(cfg.get("page.width", 1440))
     height = int(cfg.get("page.height", 1920))
@@ -369,23 +398,28 @@ def render_page(
 
     canvas = Image.new("RGB", (width, height), rgb(style.page.get("background", "#EDE3CC")))
 
+    k = geo.scale
     panel_conf = style.panel
     border = int(panel_conf.get("border", 5))
+    border = max(1, int(round(border * k))) if border > 0 else 0
     border_color = hex_rgba(panel_conf.get("border_color", "#2B2622"))
-    radius = int(panel_conf.get("radius", 6))
+    radius = max(0, int(round(int(panel_conf.get("radius", 6)) * k)))
+    sharpen = float(cfg.get("page.sharpen", 0.5) or 0.0)
+    boxes = geo.panel_boxes[: len(page.beats)]
 
-    for i, beat in enumerate(page.beats):
-        if i >= len(geo.panel_boxes):
-            break
-        box = geo.panel_boxes[i]
+    # ---- 第一遍：纸 + 画（这一层要做旧）------------------------------- #
+    for i, (beat, box) in enumerate(zip(page.beats, boxes)):
         x0, y0, x1, y1 = box
         pw, ph = x1 - x0, y1 - y0
 
-        art = _load_panel_art(beat, pw, ph, style, seed=sha1(deck.theme, page.index, i))
+        art = _load_panel_art(beat, pw, ph, style, seed=sha1(deck.theme, page.index, i),
+                              sharpen=sharpen, adjust=(adjust or {}).get(beat.image))
 
         # 画格阴影
         if panel_conf.get("inner_shadow", True):
-            sh = _shadow(canvas.size, [x0 + 5, y0 + 8, x1 + 5, y1 + 8], radius, 12, 90)
+            dx, dy = max(1, int(round(5 * k))), max(1, int(round(8 * k)))
+            sh = _shadow(canvas.size, [x0 + dx, y0 + dy, x1 + dx, y1 + dy], radius,
+                         max(2, int(round(12 * k))), 90)
             canvas.paste(Image.new("RGB", canvas.size, (0, 0, 0)), (0, 0), sh)
 
         if radius > 0:
@@ -407,13 +441,17 @@ def render_page(
                 width=border,
             )
 
-        draw_banner(canvas, box, beat.caption, style, font_path, font_index)
-
+    # 做旧质感只作用于纸和画。实测以前放在标题之后，会把对比度压掉 6.5%，
+    # 而且颗粒会糊到标题字上 —— 参考样例里标题条是干净的。
     tex = style.texture
     canvas = add_halftone(canvas, float(tex.get("halftone", 0.0) or 0.0))
     canvas = add_grain(canvas, float(tex.get("grain", 0.05) or 0.0))
     canvas = add_vignette(canvas, float(tex.get("vignette", 0.10) or 0.0))
     _edge_wear(canvas, style, seed=int(sha1(deck.theme, page.index)[:8], 16))
+
+    # ---- 第二遍：后贴的现代图层，保持干净 ----------------------------- #
+    for beat, box in zip(page.beats, boxes):
+        draw_banner(canvas, box, beat.caption, style, font_path, font_index, scale=k)
 
     draw_watermark(
         canvas,
@@ -422,6 +460,7 @@ def render_page(
         deck.handle or str(cfg.get("handle", "") or ""),
         body_font_path or font_path,
         font_index,
+        scale=k,
     )
 
     ensure_dir(os.path.dirname(out_path))
@@ -442,13 +481,16 @@ def _load_panel_art(
     height: int,
     style: StylePreset,
     seed: str,
+    sharpen: float = 0.0,
+    adjust=None,
 ) -> Image.Image:
     """载入该格底图；缺图时画一块和画风同色系的占位板。"""
     path = beat.image
     if path and os.path.isfile(path):
         try:
             with Image.open(path) as im:
-                return fit_cover(im.convert("RGB"), width, height)
+                art = fit_cover(im.convert("RGB"), width, height, sharpen=sharpen)
+                return harmonize.apply(art, adjust)
         except Exception as exc:  # noqa: BLE001
             warn("底图读取失败 %s：%s" % (path, exc))
 
@@ -483,6 +525,17 @@ def render_deck(
     if not font_path:
         warn("没找到中文字体，标题可能显示成方块。见 dig doctor 的提示。")
 
+    # 整套调色统一：统计要看整套，所以在这里算一次，而不是每页各算各的。
+    # 生成失败的占位图不参与统计（会把均值带偏），但照样会被调。
+    beats = deck.all_beats
+    adjust = harmonize.plan(
+        [b.image for b in beats if b.image],
+        strength=float(cfg.get("page.harmonize", 0.5) or 0.0),
+        exclude=[b.image for b in beats if b.image and b.error],
+    )
+    if adjust:
+        debug("整套调色：%d 格做了微调" % len(adjust))
+
     ext = "jpg" if str(cfg.get("page.format", "jpg")).lower() in ("jpg", "jpeg") else "png"
     files: List[str] = []
     for page in deck.pages:
@@ -490,6 +543,7 @@ def render_deck(
         render_page(
             page, deck, style, cfg, out,
             font_path=font_path, font_index=font_index, body_font_path=body_path,
+            adjust=adjust,
         )
         page.file = out
         files.append(out)
