@@ -330,7 +330,7 @@ def cmd_doctor(args) -> int:
     from .character import list_characters
 
     cfg = build_config(args)
-    log("douyin-image-gen v" + __version__)
+    log("douyin-carousel-generator v" + __version__)
     log("Python " + sys.version.split()[0] + "  平台 " + sys.platform)
     log("")
     try:
@@ -391,7 +391,7 @@ def build_parser() -> argparse.ArgumentParser:
   python -m dig ui
 """,
     )
-    p.add_argument("--version", action="version", version="douyin-image-gen " + __version__)
+    p.add_argument("--version", action="version", version="douyin-carousel-generator " + __version__)
     sub = p.add_subparsers(dest="cmd")
 
     # run

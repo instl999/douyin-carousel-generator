@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/instl999/douyin-image-gen/schema/script.schema.json",
-  "title": "douyin-image-gen script",
+  "$id": "https://github.com/instl999/douyin-carousel-generator/schema/script.schema.json",
+  "title": "douyin-carousel-generator script",
   "description": "A shot script for one Douyin two-panel explainer-comic carousel. Feed it to `python -m dig render --script <file>`. Run `python -m dig validate --script <file>` first: it enforces rules this schema cannot express, such as caption length and duplicate detection.",
   "type": "object",
   "required": ["theme", "pages"],
