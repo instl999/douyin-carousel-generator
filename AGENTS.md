@@ -11,7 +11,7 @@ Image generation **costs real money per panel** — a 12-panel set is 12 billed 
 ## The one workflow that works
 
 ```bash
-# 1. Prove the toolchain works. Free, offline, ~7 seconds.
+# 1. Prove the toolchain works. Free, offline, ~10 seconds.
 python -m dig doctor
 python -m dig run --theme "任意主题" --offline
 
@@ -21,12 +21,26 @@ python -m dig run --theme "任意主题" --offline
 # 3. Check it BEFORE spending anything. Free.
 python -m dig validate --script my-script.json
 
-# 4. Only when validate is clean:
-python -m dig render --script my-script.json
+# 4. Check the protagonist BEFORE the full set. One billed image.
+python -m dig sheet --script my-script.json          # open the printed path and look at it
+
+# 5. Only when validate is clean and the sheet looks right:
+python -m dig render --script my-script.json         # → output/<timestamp>_<theme>/
+
+# 6. Fix single panels, never the whole set:
+python -m dig reroll --script output/<run>/script.json --panel 7
 ```
 
 **Never skip step 3.** `render` runs the same checks and refuses on errors, but finding out
-at step 4 means you have already paid for the anchor panel.
+at step 5 means you have already paid for the character sheet.
+
+**Do not skip step 4 for a new character or style.** The sheet anchors every panel and is
+cached per character × style × model — a wrong one quietly spoils every set that uses it.
+`dig render` reuses the approved sheet from the cache, so step 4 costs nothing extra.
+
+`render` writes to a fresh `output/<timestamp>_<theme>/` when the script lives outside an
+output folder (like `my-script.json` in the repo root), and updates in place when it is the
+`script.json` of an earlier run. It never scatters files next to a hand-written script.
 
 ---
 
@@ -38,7 +52,7 @@ output that cannot be posted.
 | Rule | Why |
 |---|---|
 | **Two beats per page**, always | The reference format is two panels per image. A single beat per page makes the panel portrait-shaped, halves the information density, and the model tends to paint a dead area under the banner |
-| Captions are **5–14 Chinese characters** | Longer and the layout shrinks the font, so sizes differ between panels in one set |
+| Captions fit **one banner line** — 5–14 Chinese characters | `validate` measures the rendered width with the real font. A caption that wraps makes a tall banner that hides the art; one that needs a smaller size shrinks the **whole set** (one type size per set). Over 18 full-width characters is an error |
 | **No serial numbers** in captions (`1.`, `第3格：`) | Viewers read content, not indices |
 | **Every caption unique** | This format dies on repetition — one repeated beat loses a chunk of the audience |
 | **Same beat count on every page** | Mixed 1/2-panel pages make the set look broken |
@@ -69,7 +83,15 @@ re-describe their appearance per panel, and never give them a different name mid
 The tool also generates a **character sheet** — one scene-free portrait on a plain
 background — and feeds it to every panel as a reference image (`run.character_lock` and
 `run.character_sheet`, both on by default). Leave them on. The sheet is cached per
-character × style, so it costs one image the first time and nothing afterwards.
+character × style × model, so it costs one image the first time and nothing afterwards.
+Look at it with `dig sheet` before the first full render; replace it with `--redraw`.
+
+For a **registered photo protagonist** (`--character my_ip`), the sheet is drawn *from the
+photo in the current style*: the raw photo is never used as a panel reference, so its
+background and photographic look cannot leak in. Key art from `dig character stylize` is
+per style and only ever used for that style. A script's `character_id` is honoured by
+`validate`, `render` and `reroll` alike; if it isn't registered on this machine, they stop
+before spending.
 
 Because the sheet has no scene in it, your `scene` text is the *only* thing deciding
 composition. Vary it deliberately across the set — standing/crouching, interior/exterior,
@@ -105,14 +127,29 @@ Thin: `主角在工地检查质量` — no environment, no camera distance, no l
 
 ## Cost and failure handling
 
-- Each panel is one billed call. `pages × panels` = your bill. Check it before running.
-- **Caching is on.** Re-running the same script only regenerates panels whose prompt
-  changed. Editing one caption and re-rendering costs one panel, not twelve.
+- Each panel is one billed call, plus one for a new character sheet, plus up to one quality
+  redraw per panel. Preflight prints this **worst case** before the first call; read it.
+- **Caching is on, per engine and model.** Re-running the same script with the same model
+  only regenerates panels whose prompt changed. Editing one scene and re-rendering costs one
+  panel, not twelve. `--offline` output is never cached, so it cannot masquerade as real art.
 - To re-typeset captions with **zero** image spend: `dig render --script X --skip-images`.
-- Panels that fail fall back to placeholder art so the set still completes. Check
-  `manifest.json` → `errors` afterwards and re-run to fill them in.
+- To redraw specific panels: `dig reroll --script output/<run>/script.json --panel 3,7`
+  (one billed call each). Never use `--no-cache` for this — it re-bills every panel.
+- Panels that fail fall back to placeholder art so the set still completes, and the command
+  exits **1**. `manifest.json` → `errors` names them; `dig reroll` redraws exactly those.
+- `manifest.json` → `billing` records the calls actually made (`sheet` / `panel` / `redraw`)
+  and cache hits. Report it to the user.
+- A rejected key (HTTP 401/403) stops the run after **one** request and exits **2**.
 
-## Provider gotchas (Volcengine AgentPlan, the default)
+Exit codes: `0` finished with real art everywhere · `1` finished with placeholders (or batch
+topics failed) · `2` nothing generated (bad args/config, validation errors, key rejected).
+
+## Provider gotchas (Volcengine AgentPlan, the verified path)
+
+The shipped default config is **pay-as-you-go** Ark (`/api/v3`, Seedream 4.0). The path
+verified end-to-end is **AgentPlan** (`/api/plan/v3`, Seedream 5.0 Lite); switching is two
+lines in `config.yaml` — see the AgentPlan block in `config.example.yaml`. Ask the user for
+their AgentPlan model ID; do not guess one.
 
 Already handled in code — do not "fix" these:
 
@@ -131,14 +168,18 @@ Full detail: [docs/provider-notes.md](docs/provider-notes.md).
 - Do not raise `run.workers` above 1 for runs that use a character.
 - Do not put an API key into a file on the user's behalf — ask them to do it.
 - Do not run a 12-panel set to "see if it works". Use `--offline` for that.
+- Do not use `--no-cache` to redraw a panel. Use `dig reroll --panel N`.
+- Do not treat exit code 1 as success. Placeholders are in the set.
 
 ## Before you report done
 
-1. Open the generated images. Actually look at them.
+1. Open `preview.jpg` — the whole set on one sheet plus page 1 in a phone mock-up.
+   Actually look at it, then open any page that looks off at full size.
 2. Confirm the protagonist is the same person in every panel.
-3. Confirm no garbled text appeared inside the art.
-4. Check `manifest.json` → `errors` is empty.
+3. Confirm no garbled text appeared inside the art (`dig reroll` any panel that has it).
+4. Check the exit code was 0 and `manifest.json` → `errors` is empty.
 5. Confirm the footer watermark shows the right Douyin ID.
+6. Tell the user how many billed calls were made (`manifest.json` → `billing.requests`).
 
 `caption.txt` in the output directory carries this checklist plus the ready-to-paste post
 copy.

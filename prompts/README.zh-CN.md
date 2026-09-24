@@ -5,8 +5,9 @@
 
 | 文件 | 用途 | 在哪里被用到 |
 |---|---|---|
-| `topic_ideation_zh.md` | **选题生成**，复制进 ChatGPT 用 | 人工，产出 `topics.json` |
+| `topic_ideation_zh.md` | **选题生成**，复制进 ChatGPT 用 | 人工，产出 `topics.json`；`dig batch` 会把其中的 `title` / `type` / `beats_preview` / `hashtags` 交给写脚本的模型 |
 | — | 分镜脚本系统提示词 | 代码内置：`dig/script_gen.py` 的 `SYSTEM` |
+| — | 脚本修正提示词（体检不过时改一轮） | 代码内置：`dig/script_gen.py` 的 `REPAIR_TMPL` |
 | — | 画风反推提示词 | 代码内置：`dig/style.py` 的 `STYLE_SYSTEM` |
 | — | 角色设定卡提示词 | 代码内置：`dig/character.py` 的 `CHAR_SYSTEM` |
 | — | 单格画面提示词拼装 | 代码内置：`dig/prompt_builder.py` |

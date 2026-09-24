@@ -33,7 +33,7 @@
     },
     "character_id": {
       "type": ["string", "null"],
-      "description": "A character registered via `dig character add`. Use `character` instead for mascots."
+      "description": "A character registered via `dig character add`. Honoured by validate, render and reroll alike; if it is not registered on this machine they stop before spending. Use `character` instead for mascots."
     },
     "character": {
       "type": "object",
@@ -52,7 +52,12 @@
           "description": "1-2 anchor elements that must appear in every panel, e.g. 红围巾 + 圆眼镜."
         },
         "persona": { "type": "string" },
-        "use_photo_as_ref": { "type": "boolean", "default": true }
+        "use_photo_as_ref": { "type": "boolean", "default": true },
+        "style_refs": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Per-style key art, {style_id: path}. Written by `dig character stylize`; a style only ever uses its own entry."
+        }
       }
     },
     "meta": { "type": "object" },
@@ -90,6 +95,15 @@
                 "note": {
                   "type": "string",
                   "description": "Operator note. Not rendered."
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Written by the tool: this panel's art, relative to the script's folder. Leave it out of hand-written scripts."
+                },
+                "variant": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Written by `dig reroll`: how many times this panel was redrawn. Each redraw gets a new cache key and seed."
                 }
               }
             }

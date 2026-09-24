@@ -4,8 +4,9 @@
 
 | File | Purpose | Used by |
 |---|---|---|
-| `topic_ideation_zh.md` | **Topic ideation** — paste into ChatGPT | You, manually; produces `topics.json` |
+| `topic_ideation_zh.md` | **Topic ideation** — paste into ChatGPT | You, manually; produces `topics.json`. `dig batch` passes each topic's `title` / `type` / `beats_preview` / `hashtags` to the script writer |
 | — | Shot-script system prompt | In code: `SYSTEM` in [`dig/script_gen.py`](../dig/script_gen.py) |
+| — | Script repair prompt (one pass when validation fails) | In code: `REPAIR_TMPL` in [`dig/script_gen.py`](../dig/script_gen.py) |
 | — | Style-derivation prompt | In code: `STYLE_SYSTEM` in [`dig/style.py`](../dig/style.py) |
 | — | Character-sheet prompt | In code: `CHAR_SYSTEM` in [`dig/character.py`](../dig/character.py) |
 | — | Per-panel prompt assembly | In code: [`dig/prompt_builder.py`](../dig/prompt_builder.py) |
