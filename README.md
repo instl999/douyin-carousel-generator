@@ -315,6 +315,30 @@ Other commands: `script`, `render`, `validate`, `batch`, `style list|show|add`,
 
 ---
 
+## Image quality
+
+Everything below was measured on real Seedream 5.0 output, then fixed, then re-measured.
+Re-rendering existing panels is free (`--skip-images`), so each change was compared
+against identical art.
+
+| Finding | Fix | Result |
+|---|---|---|
+| **69% of every generated panel was discarded.** AgentPlan forces ≥3.7 MP per image, and a 1440×1920 page only uses 1.2 MP of it | Default canvas raised to **1792×2400** — the exact size of the reference originals | Discard drops to 49%. **Generation cost unchanged** — those pixels were already being paid for |
+| Print texture was applied *after* the captions, putting grain on the text | Texture now goes on paper and art only; captions and watermark are composited afterwards | Caption banner is pixel-identical with grain on or off. Caption contrast +6.5% |
+| Downscaling 1.4–1.8× blurred halftone dots and hatching | Mild unsharp mask after significant downscales only (`page.sharpen`) | Fine-detail edge energy **+19%**. Tuned down after an earlier setting left visible halos on the thickest ink lines |
+| A six-panel set looked like six print runs: brightness varied by ~42 levels, warmth by ~22 | Partial per-channel gamma pulling each panel toward the set median (`page.harmonize`) | Brightness spread −23–29%, colour-cast spread −18%, **pure black ink untouched** |
+
+Two details in that last row matter. Harmonisation is deliberately **partial** (50%) —
+a night scene should stay darker than a sunlit one. And it uses **gamma curves rather than
+a colour shift**: shifting would have lifted the black linework to grey, which is the one
+thing this style cannot afford. Gamma pins pure black and pure white in place and moves
+only the midtones.
+
+The layout now scales with the canvas, so other sizes work too — including non-3:4
+canvases, where it scales by the tighter axis so captions cannot overflow.
+
+---
+
 ## Two design decisions worth knowing
 
 **Chinese text is rendered locally by Pillow, never drawn by the image model.**

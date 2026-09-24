@@ -27,10 +27,12 @@ DEFAULTS: Dict[str, Any] = {
     "assets_dir": "assets",
     # 成图规格：抖音图文推荐 3:4
     "page": {
-        "width": 1440,
-        "height": 1920,
+        "width": 1792,           # 参考样例原图就是 1792x2400
+        "height": 2400,
         "format": "jpg",          # jpg / png
         "quality": 92,
+        "sharpen": 0.5,          # 缩图后的轻度锐化，0 关闭
+        "harmonize": 0.5,        # 整套调色统一的力度，0 关闭
     },
     "deck": {
         "pages": 6,               # 5~7
