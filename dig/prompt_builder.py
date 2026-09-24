@@ -5,9 +5,62 @@
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Sequence, Tuple
 
 from .models import Beat, Character, Deck, StylePreset
+
+# 色板写成颜色词，不写色号。画图模型并不会把 "#EDE3CC" 当颜色读，
+# 反而可能把这串字符当成要画进画面的文字 —— 而画面里偏偏禁止出现文字。
+COLOR_NAMES: Sequence[Tuple[str, str]] = (
+    ("纯黑", "#000000"), ("墨黑", "#1F1B18"), ("炭灰", "#3A3A3A"), ("深褐", "#4A3B30"),
+    ("棕褐", "#7A5230"), ("赭石", "#A0522D"), ("砖红", "#B4553F"), ("朱砂红", "#B23A32"),
+    ("胭脂红", "#9D2933"), ("品红", "#E0218A"), ("珊瑚粉", "#F2B5A0"), ("藕粉", "#D9A79B"),
+    ("豆沙粉", "#C38D9E"), ("杏色", "#E8A87C"), ("暖黄", "#E9C877"), ("姜黄", "#C8A24A"),
+    ("明黄", "#FFC93C"), ("米黄", "#EDE3CC"), ("奶油白", "#FAF7F0"), ("宣纸白", "#F2EAD9"),
+    ("象牙白", "#FBF4E6"), ("燕麦色", "#C9B8A8"), ("卡其", "#C3B091"), ("灰绿", "#7B9A8B"),
+    ("薄荷绿", "#A8D0C6"), ("豆绿", "#A3C4A8"), ("暗墨绿", "#5C7A5E"), ("莫兰迪灰绿", "#8FA3A0"),
+    ("荧光青", "#27E1C1"), ("灰蓝", "#6B7B8C"), ("雾蓝", "#85A8C7"), ("靛青", "#2E4A62"),
+    ("藏青", "#3E5C76"), ("电光蓝", "#5B6CFF"), ("薰衣草紫", "#B5A7E6"), ("深夜蓝", "#0E1020"),
+    ("冷白", "#F2F5FF"), ("纯白", "#FFFFFF"), ("中灰", "#8C8C8C"), ("浅灰", "#D0D0D0"),
+)
+
+
+def _rgb(hex_value: str) -> Optional[Tuple[int, int, int]]:
+    s = str(hex_value or "").strip().lstrip("#")
+    if len(s) == 3:
+        s = "".join(c * 2 for c in s)
+    if len(s) < 6:
+        return None
+    try:
+        return int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16)
+    except ValueError:
+        return None
+
+
+def color_name(hex_value: str) -> str:
+    """色号 → 最接近的中文颜色词（"红均值"加权的 RGB 距离，比直线距离更接近人眼）。"""
+    c = _rgb(hex_value)
+    if c is None:
+        return str(hex_value)
+    best, best_d = str(hex_value), None
+    for name, ref in COLOR_NAMES:
+        r = _rgb(ref)
+        assert r is not None
+        rm = (c[0] + r[0]) / 2.0
+        dr, dg, db = c[0] - r[0], c[1] - r[1], c[2] - r[2]
+        d = (2 + rm / 256.0) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256.0) * db * db
+        if best_d is None or d < best_d:
+            best, best_d = name, d
+    return best
+
+
+def palette_words(palette: Sequence[str], limit: int = 6) -> str:
+    names: List[str] = []
+    for value in list(palette)[:limit]:
+        name = color_name(value)
+        if name not in names:
+            names.append(name)
+    return "、".join(names)
 
 def composition(landscape: bool = True) -> str:
     """构图约束。
@@ -49,7 +102,7 @@ def deck_bible(deck: Deck, style: StylePreset, character: Optional[Character]) -
     parts: List[str] = []
     parts.append("【画风】" + style.prompt.strip())
     if style.palette:
-        parts.append("【主色板】" + "、".join(style.palette[:6]) + "，整套色调必须统一。")
+        parts.append("【主色板】" + palette_words(style.palette) + "，整套色调必须统一。")
     if character and character.sheet:
         who = character.name or "主角"
         parts.append("【固定主角】%s：%s" % (who, character.sheet))
@@ -72,7 +125,11 @@ def panel_prompt(
     allow_in_image_text: bool = False,
     landscape: bool = True,
 ) -> str:
-    """单格提示词。"""
+    """单格提示词。
+
+    index / total 不再写进提示词：以前末尾有一句"这是第 3 / 12 格"，对画图模型
+    毫无信息量，还可能诱导它画出数字或分格线。参数保留是为了调用方兼容。
+    """
     lines: List[str] = [deck_bible(deck, style, character)]
     lines.append("【本格画面】" + (beat.scene or beat.caption))
     if beat.caption:
@@ -84,7 +141,6 @@ def panel_prompt(
     lines.append(NO_FRAME)
     if not allow_in_image_text:
         lines.append(NO_TEXT)
-    lines.append("这是第 %d / %d 格。" % (index, total))
     return "\n".join(x for x in lines if x)
 
 

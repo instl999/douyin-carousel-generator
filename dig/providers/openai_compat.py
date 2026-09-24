@@ -10,7 +10,7 @@ import os
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..config import ProviderConf
-from ..util import DigError, b64_data_uri, debug, guess_mime, read_bytes
+from ..util import DigError, b64_data_uri, guess_mime, read_bytes
 from .base import (
     ImageEngine,
     TextEngine,
@@ -18,7 +18,6 @@ from .base import (
     http_json,
     http_multipart,
     log_payload,
-    pick_size,
 )
 
 

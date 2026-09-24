@@ -1,13 +1,15 @@
 id: ins_minimal
 name: 极简ins风
-description: 干净的奶油底 + 大留白 + 细描边插画，适合知识科普、职场、自我提升类。
+description: 干净的奶油底 + 细描边插画 + 左对齐标题，适合知识科普、职场、自我提升类。
 
 prompt: >-
-  现代极简扁平插画，细而干净的线条，大面积留白，奶油白与燕麦色为底，
-  点缀低饱和的莫兰迪色，人物造型简化但比例准确，无复杂纹理，
-  柔和的漫射光，画面安静克制，像高级杂志内页插图
+  现代极简扁平插画，细而干净的线条，画面元素少而精、构图疏朗，
+  奶油白与燕麦色为主调，点缀低饱和的莫兰迪色；
+  背景是完整的真实环境（室内的墙面、窗户与家具，或室外的楼群、树木与天空），
+  用大块干净的平涂色面表现，一直铺到画面顶边；
+  人物造型简化但比例准确，无复杂纹理，柔和的漫射光，画面安静克制，像高级杂志内页插图
 
-negative: 复古做旧、半调网点、粗黑描边、高饱和、杂乱细节、荧光色
+negative: 复古做旧、半调网点、粗黑描边、高饱和、杂乱细节、荧光色、空白背景、纯色背景
 
 palette: ["#FAF7F0", "#2F2C28", "#C9B8A8", "#8FA3A0", "#D9A79B", "#6B7B8C"]
 
@@ -23,19 +25,21 @@ panel:
   inner_shadow: true
 
 banner:
+  shape: rounded
+  position: left          # 横幅贴左，文字左对齐：杂志内页的排法
+  align: left
+  inset: 36
   fill: "#FFFFFF"
-  stroke: "#2F2C28"
-  stroke_width: 2
+  stroke_width: 0
   text_color: "#2F2C28"
-  radius: 26
+  radius: 22
   font_size: 72
   min_font_size: 30
   top: 40
   max_width: 0.84
 
 watermark:
-  color: "#FFFFFF"
-  outline: "#00000044"
+  color: auto
   font_size: 42
 
 texture:
@@ -43,3 +47,8 @@ texture:
   vignette: 0.04
   halftone: 0.0
   edge_wear: false
+
+# 这个画风本来就有大块平涂色面（整面墙、一片天），放宽"顶部死色"的判定，
+# 否则会被当成废图反复计费重画。真正的空白顶（7 条全死）照样抓。
+quality:
+  max_dead_bands: 4

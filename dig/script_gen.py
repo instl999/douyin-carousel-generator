@@ -9,8 +9,9 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
+from . import validate as validate_mod
 from .config import Config
-from .models import Beat, Character, Deck, Page
+from .models import Beat, Character, Deck, Page, StylePreset
 from .providers.base import TextEngine
 from .util import DigError, debug, extract_json, log, warn
 from .validate import PAGES_MAX, PAGES_MIN, PANELS_MAX
@@ -74,18 +75,53 @@ USER_TMPL = """请为下面这个主题写一整套图文。
 【生成参数】{meta}
 """
 
+REPAIR_TMPL = """下面这份脚本没有通过体检。请逐条改掉问题，输出**完整的**修正版 JSON
+（结构和原来完全一样，没有问题的格子原样保留，不要任何解释）。
+
+【体检问题】
+{issues}
+
+【硬性要求】
+- 必须正好 {pages} 个 page，每个 page 正好 {panels} 个 beat；
+- 每句短标题 5~14 字，不带序号，全套不重复，句式保持工整；
+- scene 写清楚「谁 + 在哪 + 在干什么 + 背景里有什么」，不要要求画面里出现文字。
+
+【原脚本】
+{script}
+
+【生成参数】{meta}
+"""
+
+# 这些问题文本模型自己改得掉；no-handle / no-character 这类是用户配置，不该让模型"修"
+REPAIRABLE_WARNINGS = frozenset({
+    "caption-long", "caption-quotes", "scene-wants-text", "scene-thin",
+    "scene-no-lead", "ragged-panels", "beat-count",
+})
+
 
 def _extra_block(
     character: Optional[Character],
     style_name: str,
     angle: str,
     audience: str,
+    hints: Optional[Dict[str, Any]] = None,
 ) -> str:
     lines: List[str] = []
+    hints = hints or {}
     if audience:
         lines.append("【目标观众】" + audience)
     if angle:
         lines.append("【切入角度】" + angle)
+    if hints.get("type"):
+        lines.append("【选题类型】" + str(hints["type"]))
+    if hints.get("title"):
+        lines.append("【参考标题】%s（可以沿用，也可以改得更抓人）" % hints["title"])
+    preview = [str(x).strip() for x in (hints.get("beats_preview") or []) if str(x).strip()]
+    if preview:
+        lines.append(
+            "【前几格参考】%s（选题时已经验证过能拆点，可以沿用，后面按同样的句式往下写）"
+            % " / ".join(preview[:6])
+        )
     if style_name:
         lines.append("【画风】" + style_name + "（写画面时请顺着这个调性想场景）")
     if character:
@@ -109,6 +145,7 @@ def build_prompt(
     style_name: str = "",
     angle: str = "",
     audience: str = "",
+    hints: Optional[Dict[str, Any]] = None,
 ) -> str:
     meta = json.dumps(
         {
@@ -125,7 +162,7 @@ def build_prompt(
         pages=pages,
         panels=panels,
         total=pages * panels,
-        extra=_extra_block(character, style_name, angle, audience),
+        extra=_extra_block(character, style_name, angle, audience, hints),
         meta=meta,
     )
 
@@ -228,12 +265,19 @@ def parse_script(
 
     want = pages * panels
     if len(flat) < want:
-        warn("模型只给了 %d 格，需要 %d 格，用已有内容补齐" % (len(flat), want))
-        i = 0
-        while len(flat) < want:
-            src = flat[i % max(1, len(flat))]
-            flat.append(Beat(caption=src.caption, scene=src.scene, note=src.note))
-            i += 1
+        # 以前拿已有的格子复制凑数 —— 复制出来的标题必然重复，体检直接判错，
+        # 等于白调一次模型。现在按"完整的张数"截取，少一张也比重复一格强。
+        complete = len(flat) // panels
+        if complete < PAGES_MIN:
+            raise DigError(
+                "模型只写了 %d 格，凑不够 %d 张完整的图（每张 %d 格）。请重试或换个更好拆点的主题"
+                % (len(flat), PAGES_MIN, panels)
+            )
+        warn("模型只写了 %d 格（要 %d 格），按 %d 张出，不拿重复的格子凑数"
+             % (len(flat), want, complete))
+        deck.meta["short_by"] = want - len(flat)
+        pages = complete
+        flat = flat[: complete * panels]
     elif len(flat) > want:
         debug("模型多给了 %d 格，截断" % (len(flat) - want))
         flat = flat[:want]
@@ -260,19 +304,102 @@ def generate_script(
     angle: str = "",
     audience: str = "",
     attempts: int = 2,
+    hints: Optional[Dict[str, Any]] = None,
+    style: Optional[StylePreset] = None,
+    repair: bool = True,
 ) -> Deck:
+    """写脚本 → 体检 → 有问题就把体检结果喂回去让模型改一轮 → 取问题更少的那版。
+
+    文本模型数不清中文字数、偶尔写序号或重复，体检能精确指出是哪一格的哪个问题，
+    直接回喂比让人手改省事得多。只改一轮：文本调用很便宜，但不能无限循环。
+    """
     pages = int(max(PAGES_MIN, min(PAGES_MAX, pages)))
     panels = int(max(1, min(PANELS_MAX, panels)))
-    prompt = build_prompt(theme, pages, panels, character, style_name, angle, audience)
+    prompt = build_prompt(theme, pages, panels, character, style_name, angle, audience, hints)
 
     last_err: Optional[Exception] = None
+    deck: Optional[Deck] = None
     for i in range(max(1, attempts)):
         try:
             raw = engine.complete(SYSTEM, prompt, json_mode=True)
             deck = parse_script(raw, theme, pages, panels)
-            deck.meta["script_model"] = getattr(engine, "name", "?")
-            return deck
+            break
         except Exception as exc:  # noqa: BLE001
             last_err = exc
             warn("脚本生成第 %d 次失败：%s" % (i + 1, exc))
-    raise DigError("脚本生成失败：%s" % last_err)
+    if deck is None:
+        raise DigError("脚本生成失败：%s" % last_err)
+
+    deck.meta["script_model"] = getattr(engine, "name", "?")
+    if repair:
+        deck = _repair_if_needed(cfg, engine, deck, theme, pages, panels, character, style)
+    _apply_hints(deck, hints)
+    return deck
+
+
+def _problems(deck: Deck, character: Optional[Character], style: Optional[StylePreset],
+              cfg: Optional[Config], want_beats: int) -> List["validate_mod.Issue"]:
+    page_size = None
+    if cfg is not None:
+        page_size = (int(cfg.get("page.width", 1792)), int(cfg.get("page.height", 2400)))
+    issues = validate_mod.validate_deck(deck, style, character, page_size=page_size, cfg=cfg)
+    have = len(deck.all_beats)
+    if have < want_beats:
+        issues.append(validate_mod.Issue(
+            "warn", "脚本", "beat-count", "只写了 %d 格，要求 %d 格" % (have, want_beats),
+            "补齐到正好 %d 格" % want_beats,
+        ))
+    return [i for i in issues if i.level == "error" or i.code in REPAIRABLE_WARNINGS]
+
+
+def _score(problems) -> tuple:
+    return (sum(1 for p in problems if p.level == "error"), len(problems))
+
+
+def _repair_if_needed(cfg, engine, deck, theme, pages, panels, character, style) -> Deck:
+    problems = _problems(deck, character, style, cfg, pages * panels)
+    if not problems:
+        return deck
+    log("脚本体检有 %d 处可改的问题，让模型改一轮…" % len(problems))
+    meta = json.dumps(
+        {"task": "repair", "theme": theme, "pages": pages, "panels_per_page": panels,
+         "character": (character.name if character else "")},
+        ensure_ascii=False,
+    )
+    body = {k: v for k, v in deck.to_dict().items() if k in ("title", "hook", "caption", "hashtags", "pages")}
+    prompt = REPAIR_TMPL.format(
+        issues="\n".join(p.render() for p in problems),
+        pages=pages,
+        panels=panels,
+        script=json.dumps(body, ensure_ascii=False, indent=1),
+        meta=meta,
+    )
+    try:
+        raw = engine.complete(SYSTEM, prompt, json_mode=True)
+        fixed = parse_script(raw, theme, pages, panels)
+    except Exception as exc:  # noqa: BLE001 - 修不好就用原版，体检会照常拦
+        warn("修正这一轮没成功（%s），沿用原脚本" % exc)
+        return deck
+    fixed.meta.update({k: v for k, v in deck.meta.items() if k not in fixed.meta and k != "short_by"})
+    after = _problems(fixed, character, style, cfg, pages * panels)
+    if _score(after) < _score(problems):
+        log("修正后剩 %d 处问题（原来 %d 处），采用修正版" % (len(after), len(problems)))
+        fixed.meta["repaired"] = True
+        return fixed
+    log("修正版没有更好（%d 处 vs %d 处），沿用原版" % (len(after), len(problems)))
+    return deck
+
+
+def _apply_hints(deck: Deck, hints: Optional[Dict[str, Any]]) -> None:
+    """选题文件里的标题 / 话题：模型没给就用选题时定好的，话题合并去重。"""
+    if not hints:
+        return
+    if not deck.title.strip() and hints.get("title"):
+        deck.title = str(hints["title"]).strip()
+    tags = []
+    for t in list(hints.get("hashtags") or []) + list(deck.hashtags):
+        t = "#" + str(t).lstrip("#").strip()
+        if len(t) > 1 and t not in tags:
+            tags.append(t)
+    if tags:
+        deck.hashtags = tags[:8]

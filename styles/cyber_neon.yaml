@@ -23,6 +23,8 @@ panel:
   radius: 10
 
 banner:
+  shape: glow             # 霓虹光晕
+  glow: "#27E1C1"
   fill: "#101430"
   stroke: "#27E1C1"
   stroke_width: 3

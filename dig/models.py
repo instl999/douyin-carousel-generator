@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import dataclasses
+import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -25,12 +27,20 @@ class Beat:
     prompt: Optional[str] = None   # 渲染后填充：实际送给模型的 prompt
     error: Optional[str] = None    # 该格生成失败时的原因
     warning: Optional[str] = None  # 质检警告（图能用，但有瑕疵）
+    variant: int = 0               # 重画次数（dig reroll 每次 +1，换一张新图）
 
     def to_dict(self) -> Dict[str, Any]:
-        return _clean(dataclasses.asdict(self))
+        d = _clean(dataclasses.asdict(self))
+        if not d.get("variant"):
+            d.pop("variant", None)         # 没重画过就不写，保持 script.json 干净
+        return d
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "Beat":
+        try:
+            variant = max(0, int(d.get("variant") or 0))
+        except (TypeError, ValueError):
+            variant = 0
         return Beat(
             caption=str(d.get("caption", "")).strip(),
             scene=str(d.get("scene", "")).strip(),
@@ -39,6 +49,7 @@ class Beat:
             prompt=d.get("prompt"),
             error=d.get("error"),
             warning=d.get("warning"),
+            variant=variant,
         )
 
 
@@ -140,8 +151,20 @@ class Character:
     sheet_en: str = ""                     # 英文版（部分模型英文更稳）
     persona: str = ""                      # 人设 / 说话口吻，用于写文案
     signature: str = ""                    # 标志性元素（红围巾、圆眼镜…）
-    style_ref: Optional[str] = None        # 已风格化的角色参考图（三视图）
+    # 旧版字段：只能存一张风格化定妆图，不知道它属于哪个画风。
+    # 读入时按文件名 style_ref_<画风>.png 迁移进 style_refs。
+    style_ref: Optional[str] = None
+    # 每个画风一张定妆图：{画风 id: 路径}。复古漫画的定妆图不能拿去锚国潮水墨。
+    style_refs: Dict[str, str] = field(default_factory=dict)
     use_photo_as_ref: bool = True          # 生成时是否把照片作为参考图传给模型
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.style_refs, dict):
+            self.style_refs = {}
+        self.style_refs = {str(k): str(v) for k, v in self.style_refs.items() if k and v}
+        legacy = legacy_style_id(self.style_ref)
+        if legacy and legacy not in self.style_refs:
+            self.style_refs[legacy] = str(self.style_ref)
 
     def to_dict(self) -> Dict[str, Any]:
         return dataclasses.asdict(self)
@@ -151,14 +174,20 @@ class Character:
         known = {f.name for f in dataclasses.fields(Character)}
         return Character(**{k: v for k, v in (d or {}).items() if k in known})
 
-    def ref_images(self) -> List[str]:
-        """按优先级返回可作为参考图的文件路径。风格化参考图优先。"""
-        out: List[str] = []
-        if self.style_ref:
-            out.append(self.style_ref)
-        if self.use_photo_as_ref and self.photo:
-            out.append(self.photo)
-        return out
+    def style_ref_for(self, style_id: str) -> Optional[str]:
+        """这个画风专属的定妆图（用户跑 character stylize 生成的）。没有就返回 None。"""
+        return self.style_refs.get(str(style_id or "")) or None
+
+
+_LEGACY_REF = re.compile(r"^style_ref_(.+)\.(?:png|jpe?g|webp)$", re.I)
+
+
+def legacy_style_id(path: Optional[str]) -> Optional[str]:
+    """旧版 style_ref 的文件名里带着画风 id（style_ref_retro_comic.png），据此认领。"""
+    if not path:
+        return None
+    m = _LEGACY_REF.match(os.path.basename(str(path)))
+    return m.group(1) if m else None
 
 
 @dataclass
@@ -176,6 +205,7 @@ class StylePreset:
     banner: Dict[str, Any] = field(default_factory=dict)    # 文案横幅
     watermark: Dict[str, Any] = field(default_factory=dict) # 页脚抖音号
     texture: Dict[str, Any] = field(default_factory=dict)   # 颗粒 / 半调网点
+    quality: Dict[str, Any] = field(default_factory=dict)   # 质检口径（留白多的画风可以放宽）
     source_image: Optional[str] = None     # 若由参考图生成，记录来源
 
     def to_dict(self) -> Dict[str, Any]:

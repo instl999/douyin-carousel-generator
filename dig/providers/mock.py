@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import io
 import json
-import math
 import random
 import re
 from typing import Any, Dict, List, Optional, Sequence
@@ -19,7 +18,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 from ..config import ProviderConf
 from ..fonts import fit_text, find_font, load_font
-from ..util import debug, sha1
+from ..util import sha1
 from .base import ImageEngine, TextEngine
 
 META_RE = re.compile(r"【生成参数】\s*(\{.*?\})\s*(?:\n|$)", re.S)
@@ -163,6 +162,7 @@ class MockImage(ImageEngine):
     """按 prompt 哈希生成确定性的占位插画（同样的 prompt 永远同一张图）。"""
 
     name = "mock-image"
+    billed = False          # 不花钱，也绝不能进共享缓存冒充真图
 
     def __init__(self, conf: Optional[ProviderConf] = None, root: Optional[str] = None):
         self.conf = conf

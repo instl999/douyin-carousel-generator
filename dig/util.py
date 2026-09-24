@@ -9,7 +9,7 @@ import re
 import sys
 import time
 import unicodedata
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -36,6 +36,48 @@ def warn(msg: str) -> None:
 
 class DigError(Exception):
     """可预期的用户侧错误（配置缺失、API 报错等），CLI 会友好打印。"""
+
+
+class HTTPStatusError(DigError):
+    """服务端回了非 2xx。带上状态码，重试逻辑据此判断值不值得再试。"""
+
+    # 这些状态码重试一万次也是同样的结果：参数错、Key 错、没权限、模型不存在。
+    # 以前一律重试，一个过期的 Key 能让 12 格各试 3 次、白等一分多钟。
+    NON_RETRYABLE = frozenset({400, 401, 403, 404, 405, 413, 422})
+
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = int(status)
+
+    @property
+    def retryable(self) -> bool:
+        return self.status not in self.NON_RETRYABLE
+
+    @property
+    def is_auth(self) -> bool:
+        """Key 无效 / 没开通。这种错后面每一格都会一样，应当整批停下。"""
+        return self.status in (401, 403)
+
+
+class NetworkError(DigError):
+    """连接断开、超时这类网络层问题，值得重试。"""
+
+
+# 错误信息会写进 manifest.json / script.json，还会打到控制台。
+# 任何形似密钥的东西都要先抹掉，不能指望每个调用方自己记得。
+_SECRET_PATTERNS = [
+    (re.compile(r"([?&](?:key|api_key|apikey|access_token|token)=)[^&\s#\"']+", re.I), r"\1***"),
+    (re.compile(r"(Bearer\s+)[A-Za-z0-9._\-]+", re.I), r"\1***"),
+    (re.compile(r"\bAIza[0-9A-Za-z_\-]{20,}"), "AIza***"),
+]
+
+
+def redact(text: Any) -> str:
+    """抹掉字符串里的 API Key（URL 查询参数、Bearer 头、Google 风格的 Key）。"""
+    s = str(text)
+    for pattern, repl in _SECRET_PATTERNS:
+        s = pattern.sub(repl, s)
+    return s
 
 
 # --------------------------------------------------------------------------- #
@@ -135,6 +177,29 @@ def read_bytes(path: str) -> bytes:
         return fh.read()
 
 
+_DIGESTS: Dict[tuple, str] = {}
+
+
+def file_digest(path: str) -> str:
+    """文件内容的 sha1（按路径+大小+修改时间记忆，一套图里同一张参考图只读一次）。
+
+    缓存键以前用"文件名:字节数"代表参考图，重画一张同样大小的定妆图就会
+    命中旧缓存。按内容算才可靠。
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return "missing"
+    memo = (os.path.abspath(path), st.st_size, st.st_mtime_ns)
+    if memo not in _DIGESTS:
+        h = hashlib.sha1()
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                h.update(chunk)
+        _DIGESTS[memo] = h.hexdigest()
+    return _DIGESTS[memo]
+
+
 def b64_data_uri(data: bytes, mime: str = "image/jpeg") -> str:
     return "data:%s;base64,%s" % (mime, base64.b64encode(data).decode("ascii"))
 
@@ -160,17 +225,20 @@ def retry(
     base_delay: float = 2.0,
     label: str = "request",
 ) -> T:
-    """指数退避重试；最后一次仍失败则抛出原异常。"""
+    """指数退避重试；最后一次仍失败则抛出原异常。
+
+    异常带 ``retryable = False``（比如 HTTP 400/401）时立刻抛出，不再重试。
+    """
     last: Optional[BaseException] = None
     for i in range(1, attempts + 1):
         try:
             return fn()
         except Exception as exc:  # noqa: BLE001 - 调用方决定如何处理
             last = exc
-            if i >= attempts:
+            if i >= attempts or not getattr(exc, "retryable", True):
                 break
             delay = base_delay * (2 ** (i - 1))
-            warn("%s 第 %d 次失败（%s），%.1fs 后重试…" % (label, i, exc, delay))
+            warn("%s 第 %d 次失败（%s），%.1fs 后重试…" % (label, i, redact(exc), delay))
             time.sleep(delay)
     assert last is not None
     raise last
