@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..util import DigError, debug
 
-DEFAULT_UA = "douyin-image-gen/0.3"
+DEFAULT_UA = "douyin-carousel-generator/0.3"
 
 
 # --------------------------------------------------------------------------- #

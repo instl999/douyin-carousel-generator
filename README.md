@@ -1,4 +1,4 @@
-# douyin-image-gen
+# douyin-carousel-generator
 
 **One topic in → a ready-to-post set of 5–7 Douyin carousel images out.**
 
@@ -243,6 +243,42 @@ click once. Binds to localhost only and is built on `http.server` — no Flask, 
 ---
 
 ## Driving it from an agent or script
+
+**Codex or Claude Code is the recommended interface.** Open this repository in
+either agent and describe the topic, account voice, style and protagonist in
+plain language. Ask it to read [AGENTS.md](AGENTS.md) before doing any work: the
+contract makes the agent write and validate the script locally before it starts
+image generation, which keeps expensive mistakes out of the billed stage.
+
+Volcengine Ark Agent Plan image calls are **still billed per panel**. They are
+usually cheaper than standard pay-as-you-go calls, but they are not free; the
+current price and actual charge in the Ark console are the source of truth.
+
+Copy-paste examples for Codex or Claude Code:
+
+**Set up and test without paid calls**
+
+```text
+Read AGENTS.md and README.md, install the dependencies, run dig doctor, and complete one --offline test. Do not call any paid model. Tell me what API key, model ID, or CJK font is still missing.
+```
+
+**Draft and validate a carousel before generating art**
+
+```text
+Create a 6-page, two-panel-per-page script about “Six traps first-time renters miss” in a practical, plainspoken voice. Use examples/script.minimal.json and the schema, define one consistent mascot, and run dig validate. Show me all captions, the panel count, and the number of billed image calls; do not render yet.
+```
+
+**Generate the final carousel**
+
+```text
+Render the validated rental-traps script with the retro_comic style and Douyin handle my_account. Inspect every finished page, confirm character consistency and readable captions, then check manifest.json for errors. Reuse the cache and regenerate only failed or changed panels.
+```
+
+**Register a photo-based protagonist**
+
+```text
+Register ./me.jpg once as character id my_ip with the display name 小圆 and create styled key art. Then prepare and validate a carousel about “Mistakes I made buying my first home”. Before any billed image call, report the page count and panel count.
+```
 
 Every command is plain CLI. Exit codes: `0` success, `2` bad arguments/config, `1` a batch
 where everything failed. Output paths are deterministic:

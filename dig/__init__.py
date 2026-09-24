@@ -1,4 +1,4 @@
-"""douyin-image-gen — 抖音图文轮播（双格科普漫画）一键生成器。"""
+"""douyin-carousel-generator — 抖音图文轮播（双格科普漫画）一键生成器。"""
 from __future__ import annotations
 
 import sys
