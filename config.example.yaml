@@ -6,10 +6,12 @@ style: retro_comic        # 默认画风，见 styles/ 目录
 handle: ""                # 你的抖音号，会渲染到每张图的页脚
 
 page:
-  width: 1440             # 抖音图文推荐 3:4
-  height: 1920
+  width: 1792             # 参考样例原图尺寸（3:4）。生图本来就要画 370 万像素，
+  height: 2400            # 成图做大一点，丢掉的细节就少一点，不多花钱
   format: jpg
   quality: 92
+  sharpen: 0.5            # 缩图后的轻度锐化，找回描边的利落感；0 关闭
+  harmonize: 0.5          # 整套调色统一，让 6 张像同一次印刷；0 关闭
 
 deck:
   pages: 6                # 一套出几张（5~7）
