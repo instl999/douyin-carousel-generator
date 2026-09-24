@@ -10,12 +10,30 @@ from typing import List, Optional
 
 from .config import Config
 from .models import Character, Deck, StylePreset
-from .util import dump_json, ensure_dir, log
+from .util import dump_json, ensure_dir, warn
+
+
+def _rel(path: Optional[str], base: str) -> Optional[str]:
+    """输出目录里的文件存相对路径：整个目录挪走、拷给别人，重排和重画照样能用。"""
+    if not path:
+        return path
+    try:
+        rel = os.path.relpath(os.path.abspath(path), os.path.abspath(base))
+    except ValueError:            # Windows 跨盘符
+        return path
+    return path if rel.startswith("..") else rel.replace(os.sep, "/")
 
 
 def write_script(deck: Deck, out_dir: str) -> str:
     path = os.path.join(out_dir, "script.json")
-    dump_json(path, deck.to_dict())
+    data = deck.to_dict()
+    for page in data.get("pages", []):
+        for beat in page.get("beats", []):
+            if beat.get("image"):
+                beat["image"] = _rel(beat["image"], out_dir)
+        if page.get("file"):
+            page["file"] = _rel(page["file"], out_dir)
+    dump_json(path, data)
     return path
 
 
@@ -42,11 +60,11 @@ def write_caption(deck: Deck, out_dir: str) -> str:
             if beat.note:
                 lines.append("    · %s" % beat.note)
     lines.append("")
-    lines.append("【发布前自检】")
+    lines.append("【发布前自检】（先看 preview.jpg：整套 + 手机里的样子都在一张图上）")
     lines.append("  □ 第 1 张图能不能在 1 秒内看懂？看不懂就换封面")
     lines.append("  □ 每句标题是否都在 14 字以内、不挡人物脸")
     lines.append("  □ 主角在每张图里是不是同一个人（发型/衣服/配饰）")
-    lines.append("  □ 画面里有没有混进乱码文字，有就重跑那一格")
+    lines.append("  □ 画面里有没有混进乱码文字，有就重画那一格：dig reroll --script script.json --panel N")
     lines.append("  □ 抖音号水印是否正确")
     lines.append("  □ 底部约 250px 会被 App 界面遮挡，重要内容别放那里")
 
@@ -80,20 +98,40 @@ def write_manifest(
         "handle": deck.handle,
         "size": [cfg.get("page.width"), cfg.get("page.height")],
         "providers": {
-            "text": cfg.get("providers.text.provider") + ":" + str(cfg.get("providers.text.model")),
-            "image": cfg.get("providers.image.provider") + ":" + str(cfg.get("providers.image.model")),
+            "text": "%s:%s" % (cfg.get("providers.text.provider"), cfg.get("providers.text.model")),
+            "image": "%s:%s" % (cfg.get("providers.image.provider"), cfg.get("providers.image.model")),
         },
         "files": [os.path.basename(f) for f in files],
-        "stats": stats or {},
+        "preview": "preview.jpg" if os.path.isfile(os.path.join(out_dir, "preview.jpg")) else None,
+        "stats": {k: v for k, v in (stats or {}).items() if k != "billing"},
+        # 这一次实际发了多少次生图请求（定妆图 / 分格 / 质检重画），命中缓存的不计费
+        "billing": (stats or {}).get("billing"),
+        "panels": [
+            _panel_row(i, b, out_dir)
+            for i, b in enumerate(deck.all_beats)
+        ],
         "errors": [
             {"panel": i + 1, "error": b.error}
             for i, b in enumerate(deck.all_beats)
             if b.error
         ],
+        "warnings": [
+            {"panel": i + 1, "warning": b.warning}
+            for i, b in enumerate(deck.all_beats)
+            if b.warning
+        ],
     }
     path = os.path.join(out_dir, "manifest.json")
     dump_json(path, data)
     return path
+
+
+def _panel_row(i: int, beat, out_dir: str) -> dict:
+    row = {"panel": i + 1, "caption": beat.caption, "image": _rel(beat.image, out_dir),
+           "status": "failed" if beat.error else ("warning" if beat.warning else "ok")}
+    if beat.variant:
+        row["variant"] = beat.variant
+    return row
 
 
 def make_zip(out_dir: str, files: List[str], name: str = "post.zip") -> str:
@@ -120,12 +158,20 @@ def finish(
 ) -> dict:
     write_script(deck, out_dir)
     caption = write_caption(deck, out_dir)
+    preview = None
+    try:
+        from .preview import make_preview
+
+        preview = make_preview(files, deck, os.path.join(out_dir, "preview.jpg"), stats, root=cfg.root)
+    except Exception as exc:  # noqa: BLE001 - 预览图画不出来不影响成图
+        warn("预览图没生成：%s" % exc)
     manifest = write_manifest(deck, style, cfg, out_dir, files, character, stats)
     result = {
         "out_dir": out_dir,
         "files": files,
         "caption": caption,
         "manifest": manifest,
+        "preview": preview,
     }
     if zip_it:
         result["zip"] = make_zip(out_dir, files)

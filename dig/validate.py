@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Callable, List, Optional, Tuple
 
 from .models import Character, Deck, StylePreset
 from .util import DigError
 
 # 和参考样例对齐的硬性口径
-CAPTION_MAX = 14          # 超过就要缩字号，整套字号不齐
+CAPTION_MAX = 14          # 没有字体可量时的字数口径：超过就可能折行
 CAPTION_HARD_MAX = 18     # 超过这个直接判错
 CAPTION_MIN = 3
 SCENE_MIN = 8
@@ -63,6 +63,18 @@ class Issue:
         return out
 
 
+def display_len(text: str) -> float:
+    """按全角字宽计数：汉字、全角标点算 1，英文数字半角字符算 0.5。
+
+    "iPhone 16 Pro Max 值不值" 按字符数是 21，看上去却只有 12 个字宽。
+    """
+    n = 0.0
+    for ch in text or "":
+        code = ord(ch)
+        n += 1.0 if (code >= 0x2E80 or 0x2010 <= code <= 0x206F) else 0.5
+    return n
+
+
 def _unbalanced_quotes(text: str) -> bool:
     for opener, closer in QUOTE_PAIRS.items():
         if opener == closer:
@@ -73,13 +85,55 @@ def _unbalanced_quotes(text: str) -> bool:
     return False
 
 
+def caption_meter(
+    style: Optional[StylePreset],
+    page_size: Optional[Tuple[int, int]],
+    panels: int,
+    cfg: Any = None,
+) -> Optional[Callable[[str], Tuple[int, int]]]:
+    """返回一个量标题的函数：caption -> (按画风标准字号排出来的行数, 缩字后的字号)。
+
+    按字数判断长短并不准：英文数字只占半个字宽，引号也占位置。
+    有字体、有画风时，用和成图完全相同的排版口径实测。没有字体就返回 None，退回数字数。
+    """
+    if style is None:
+        return None
+    from .compositor import PageGeometry, banner_spec, fit_caption
+    from .fonts import find_font, text_width, wrap_text, load_font
+
+    root = getattr(cfg, "root", None)
+    preferred = str(cfg.get("text.font", "") or "") if cfg is not None else ""
+    index = int(cfg.get("text.font_index", 0) or 0) if cfg is not None else 0
+    font_path, font_index = find_font(preferred=preferred, root=root, bold=True, index=index)
+    if not font_path:
+        return None
+    w, h = page_size or (1792, 2400)
+    geo = PageGeometry(int(w), int(h), style, max(1, panels))
+    pw, ph = geo.panel_size()
+    spec = banner_spec(style, pw, ph, geo.scale)
+    full = load_font(font_path, int(spec["start"]), font_index)
+
+    def measure(text: str) -> Tuple[int, int]:
+        lines = wrap_text(full, text, spec["max_text_w"]) if text_width(full, text) > spec["max_text_w"] else [text]
+        font, _, _ = fit_caption(font_path, font_index, text, spec)
+        return len(lines), int(getattr(font, "size", spec["start"]))
+
+    measure.start_size = int(spec["start"])  # type: ignore[attr-defined]
+    return measure
+
+
 def validate_deck(
     deck: Deck,
     style: Optional[StylePreset] = None,
     character: Optional[Character] = None,
     strict: bool = False,
+    page_size: Optional[Tuple[int, int]] = None,
+    cfg: Any = None,
 ) -> List[Issue]:
-    """返回所有问题。strict=True 时把警告也升级成错误。"""
+    """返回所有问题。strict=True 时把警告也升级成错误。
+
+    给了 style（和字体）时，标题长短按成图的真实排版量，而不是数字数。
+    """
     issues: List[Issue] = []
 
     def err(where: str, code: str, msg: str, fix: str = "") -> None:
@@ -120,6 +174,12 @@ def validate_deck(
         err("脚本", "too-many-panels", "有页超过 %d 格" % PANELS_MAX,
             "一页最多 %d 格，再多字就看不清了" % PANELS_MAX)
 
+    meter = None
+    try:
+        meter = caption_meter(style, page_size, max(counts), cfg)
+    except Exception:  # noqa: BLE001 - 量不了就退回数字数，体检本身不能挂
+        meter = None
+
     # ---- 逐格检查 ------------------------------------------------------ #
     seen_captions = {}
     beat_index = 0
@@ -132,14 +192,27 @@ def validate_deck(
             if not cap:
                 err(where, "empty-caption", "短标题是空的", "写一句 %d~%d 字的短标题" % (CAPTION_MIN, CAPTION_MAX))
             else:
-                if len(cap) > CAPTION_HARD_MAX:
-                    err(where, "caption-too-long", "短标题 %d 字，超过硬上限 %d" % (len(cap), CAPTION_HARD_MAX),
+                width = display_len(cap)
+                if width > CAPTION_HARD_MAX:
+                    err(where, "caption-too-long", "短标题 %g 个字宽，超过硬上限 %d" % (width, CAPTION_HARD_MAX),
                         "砍到 %d 字以内：「%s」" % (CAPTION_MAX, cap[:CAPTION_MAX]))
-                elif len(cap) > CAPTION_MAX:
-                    warn(where, "caption-long", "短标题 %d 字，超过推荐的 %d 字" % (len(cap), CAPTION_MAX),
-                         "会被自动缩字号，和其它格字号不齐")
-                elif len(cap) < CAPTION_MIN:
-                    warn(where, "caption-short", "短标题只有 %d 字，信息量可能不够" % len(cap), "")
+                else:
+                    measured = meter(cap) if meter else None
+                    if measured is not None:
+                        lines, size = measured
+                        if size < getattr(meter, "start_size", size):
+                            warn(where, "caption-long",
+                                 "短标题放不进横幅，要缩到 %d 号字 —— 整套标题会一起跟着缩小" % size,
+                                 "删几个字，一行能放下最好（这套画布大约 %d 字以内）" % CAPTION_MAX)
+                        elif lines > 1:
+                            warn(where, "caption-long",
+                                 "短标题一行放不下，会折成 %d 行，横幅变高、多挡一块画面" % lines,
+                                 "删几个字，一行能放下最好（这套画布大约 %d 字以内）" % CAPTION_MAX)
+                    elif width > CAPTION_MAX:
+                        warn(where, "caption-long", "短标题 %g 个字宽，超过推荐的 %d" % (width, CAPTION_MAX),
+                             "可能折成两行或缩字号，和其它格不齐")
+                    if width < CAPTION_MIN:
+                        warn(where, "caption-short", "短标题只有 %g 个字宽，信息量可能不够" % width, "")
                 if SERIAL_HEAD.search(cap):
                     err(where, "caption-serial", "短标题带序号：「%s」" % cap,
                         "去掉序号。观众看的是内容，不是第几条")

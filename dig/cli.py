@@ -14,6 +14,11 @@ from . import __version__
 from .config import Config, load_config
 from .util import DigError, log, set_verbose, warn
 
+# 退出码：Agent 靠它判断要不要去读 manifest.json
+EXIT_OK = 0          # 全部成功
+EXIT_PARTIAL = 1     # 跑完了，但有格子是占位图（或批量里有选题失败）—— 看 manifest.json 的 errors
+EXIT_ERROR = 2       # 参数 / 配置 / 体检错误、Key 被拒：什么都没生成
+
 
 # --------------------------------------------------------------------------- #
 # 公共参数
@@ -78,11 +83,11 @@ def cmd_run(args) -> int:
         strict=args.strict,
         skip_validation=args.no_validate,
     )
-    _print_result(result)
-    return 0
+    return _print_result(result)
 
 
-def _print_result(result) -> None:
+def _print_result(result) -> int:
+    """打印结果并返回退出码。有占位图就返回 1 —— 以前 0/12 全失败也返回 0。"""
     log("")
     log("成图目录：" + result["out_dir"])
     for f in result.get("files", []):
@@ -91,11 +96,20 @@ def _print_result(result) -> None:
         log("文案：" + result["caption"])
     if result.get("zip"):
         log("打包：" + result["zip"])
+    if result.get("preview"):
+        log("预览：" + result["preview"] + "（整套 + 手机里的样子，发布前看这一张）")
+    billing = (result.get("stats") or {}).get("billing") or {}
+    if billing.get("billed"):
+        log("计费：本次实际发出 %d 次生图请求，详见 manifest.json 的 billing" % billing.get("requests", 0))
     deck = result.get("deck")
     if deck is not None:
-        errs = [b for b in deck.all_beats if b.error]
+        errs = [i + 1 for i, b in enumerate(deck.all_beats) if b.error]
         if errs:
-            warn("有 %d 格生图失败（已用占位图兜底），详见 manifest.json" % len(errs))
+            warn("第 %s 格生图失败（已用占位图兜底），详见 manifest.json；只重画这几格：\n"
+                 "  python -m dig reroll --script \"%s\" --panel %s"
+                 % ("、".join(map(str, errs)), os.path.join(result["out_dir"], "script.json"),
+                    ",".join(map(str, errs))))
+    return EXIT_OK if result.get("ok", True) else EXIT_PARTIAL
 
 
 # --------------------------------------------------------------------------- #
@@ -126,6 +140,24 @@ def cmd_script(args) -> int:
     return 0
 
 
+def render_out_dir(cfg: Config, script: str, explicit: str = "") -> str:
+    """render 的输出目录。
+
+    脚本就在某个作品目录里（output/ 下，或者目录里有上一轮的 manifest.json，
+    比如 run --out ./out/task123 出来的）：原地更新，改完文案重排就是这么用的。
+    其它地方的脚本（比如按 AGENTS.md 写在仓库根目录的 my-script.json）：新建
+    output/<时间>_<主题>/ —— 以前直接写进脚本所在目录，pages/、panels/、
+    manifest.json 散了一仓库根目录。
+    """
+    if explicit:
+        return explicit
+    sdir = os.path.dirname(os.path.abspath(script))
+    out = os.path.abspath(cfg.output_dir)
+    if sdir.startswith(out + os.sep) or os.path.isfile(os.path.join(sdir, "manifest.json")):
+        return sdir
+    return ""
+
+
 def cmd_render(args) -> int:
     from . import pipeline
 
@@ -139,14 +171,99 @@ def cmd_render(args) -> int:
         style_prompt=args.style_prompt,
         character_id=args.character,
         handle=args.handle,
-        out_dir=args.out or os.path.dirname(os.path.abspath(args.script)),
+        out_dir=render_out_dir(cfg, args.script, args.out),
         render_only=args.skip_images,
         zip_it=args.zip,
         strict=args.strict,
         skip_validation=args.no_validate,
     )
-    _print_result(result)
-    return 0
+    return _print_result(result)
+
+
+def _panel_list(values) -> list:
+    out = []
+    for v in values or []:
+        for part in str(v).replace("，", ",").split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                out.append(int(part))
+            except ValueError:
+                raise DigError("--panel 要写数字，比如 --panel 3 或 --panel 3,7（收到：%s）" % part)
+    return out
+
+
+def cmd_reroll(args) -> int:
+    """只重画指定的格，其余格原样沿用。"""
+    from . import pipeline
+
+    cfg = build_config(args)
+    result = pipeline.reroll(
+        cfg,
+        script_path=args.script,
+        panels=_panel_list(args.panel),
+        scene=args.scene,
+        caption=args.caption,
+        style_id=args.style,
+        character_id=args.character,
+        strict=args.strict,
+    )
+    return _print_result(result)
+
+
+def cmd_sheet(args) -> int:
+    """先只画角色定妆图（1 次计费），看过满意再出整套。"""
+    from . import charsheet, pipeline
+    from .ledger import Ledger
+    from .prompt_builder import panel_negative
+    from .providers import make_image_engine
+    from .util import ensure_dir, slugify
+
+    cfg = build_config(args)
+    deck = pipeline.load_deck(args.script) if args.script else None
+    if deck is None and not args.character:
+        raise DigError("给一个脚本（--script）或一个已登记的主角（--character）")
+    character = pipeline.resolve_character(cfg, deck, args.character)
+    if character is None:
+        raise DigError("脚本里没有主角（character / character_id），没有定妆图可画")
+    style = pipeline.resolve_style(cfg, args.style or (deck.style_id if deck else ""))
+
+    user_ref = character.style_ref_for(style.id)
+    if user_ref:
+        log("%s 在 %s 画风下用的是 character stylize 生成的定妆图：%s" % (
+            character.name or character.id, style.id, user_ref))
+        log("要换这张图，重跑：python -m dig character stylize --id %s --style %s" % (character.id, style.id))
+        return EXIT_OK
+
+    if args.out:
+        out_dir = args.out
+    elif args.script and render_out_dir(cfg, args.script):
+        out_dir = render_out_dir(cfg, args.script)
+    else:
+        out_dir = os.path.join(cfg.output_dir, "sheets",
+                               "%s_%s" % (slugify(character.name or character.id or "主角", 16), style.id))
+    ensure_dir(out_dir)
+    pc = cfg.provider("image")
+    if pc.provider != "mock":
+        pc.require_key()            # 缺 Key 在花钱之前就说清楚
+    engine = make_image_engine(pc, cfg.root)
+    ledger = Ledger.for_engine(engine)
+    path = charsheet.ensure_character_sheet(
+        character, style, engine, cfg.cache_dir, out_dir,
+        negative=panel_negative(style), use_cache=bool(cfg.get("run.cache", True)),
+        redraw=args.redraw, ledger=ledger,
+    )
+    if not path:
+        raise DigError("定妆图没画成，见上面的报错")
+    log("")
+    log("定妆图：" + path)
+    log(ledger.render())
+    log("打开看一眼：脸、发型、服装、标志性元素对不对。")
+    log("  满意：直接出整套，这张会被缓存复用，不再计费")
+    log("  不满意：改 character.sheet 的描述，或者重画一张：python -m dig sheet %s --redraw"
+        % (("--script \"%s\"" % args.script) if args.script else ("--character " + args.character)))
+    return EXIT_OK
 
 
 # --------------------------------------------------------------------------- #
@@ -155,28 +272,35 @@ def cmd_render(args) -> int:
 def cmd_validate(args) -> int:
     """只体检，不生成。Agent 应该在花钱之前先跑这个。"""
     from . import pipeline, validate
-    from .character import load_character
     from .models import Deck
 
     cfg = build_config(args)
     deck = Deck.from_dict(pipeline.read_script(args.script))
-    character = deck.character
-    if not character and deck.character_id:
-        try:
-            character = load_character(cfg, deck.character_id)
-        except DigError:
-            character = None
     style = pipeline.resolve_style(cfg, args.style or deck.style_id)
+    missing = None
+    try:
+        # 和 render 同一个口径：体检说有主角，出图就一定有主角
+        character = pipeline.resolve_character(cfg, deck, args.character)
+    except DigError as exc:
+        character, missing = None, exc
 
-    issues = validate.validate_deck(deck, style, character, strict=args.strict)
+    page_size = (int(cfg.get("page.width", 1792)), int(cfg.get("page.height", 2400)))
+    issues = validate.validate_deck(deck, style, character, strict=args.strict,
+                                    page_size=page_size, cfg=cfg)
+    if missing is not None:
+        issues = [i for i in issues if i.code != "no-character"]
+        issues.insert(0, validate.Issue(
+            "error", "脚本", "character-missing", str(missing).splitlines()[0],
+            "用 dig character list 看已登记的主角，或者改用内联 character 块",
+        ))
     log(validate.format_issues(issues))
     if validate.has_errors(issues):
         log("")
         log("有错误，生成会被拦下。改完再跑一次这条命令。")
-        return 2
+        return EXIT_ERROR
     log("")
     log("可以生成了：python -m dig render --script \"%s\"" % args.script)
-    return 0
+    return EXIT_OK
 
 
 def cmd_batch(args) -> int:
@@ -205,14 +329,16 @@ def cmd_batch(args) -> int:
         handle=args.handle,
         zip_it=args.zip,
     )
-    ok = [r for r in results if not r.get("error")]
-    log("\n批量完成：成功 %d / %d" % (len(ok), len(results)))
+    ok = [r for r in results if not r.get("error") and r.get("ok", True)]
+    log("\n批量完成：完整成功 %d / %d" % (len(ok), len(results)))
     for r in results:
         if r.get("error"):
             log("  ✗ %s：%s" % (r.get("theme"), r["error"]))
+        elif not r.get("ok", True):
+            log("  △ %s（有占位图，见 manifest.json）" % r["out_dir"])
         else:
             log("  ✓ " + r["out_dir"])
-    return 0 if ok else 1
+    return EXIT_OK if results and len(ok) == len(results) else EXIT_PARTIAL
 
 
 # --------------------------------------------------------------------------- #
@@ -286,7 +412,8 @@ def cmd_character(args) -> int:
             if c:
                 log("  %-14s %s" % (n, c.name))
                 log("  %-14s   特征：%s" % ("", (c.sheet or "")[:60]))
-                log("  %-14s   定妆图：%s" % ("", c.style_ref or "（无，建议跑 stylize）"))
+                refs = "、".join("%s" % k for k in sorted(c.style_refs)) or "（无，出图时会按画风自动生成）"
+                log("  %-14s   定妆图：%s" % ("", refs))
         return 0
 
     if args.char_cmd == "add":
@@ -303,8 +430,8 @@ def cmd_character(args) -> int:
             image_engine = make_image_engine(cfg.provider("image"), cfg.root)
             char_mod.stylize_character(cfg, image_engine, char, preset)
         else:
-            log("建议再跑一次定妆图，跨图一致性会明显变好：")
-            log("  python -m dig character stylize --id %s --style %s"
+            log("出图时会按画风自动用照片画一张定妆图（每个画风一张，缓存复用）。")
+            log("想先看一眼：python -m dig sheet --character %s --style %s"
                 % (char.id, args.style or cfg.get("style")))
         log("出图时带上：--character " + char.id)
         return 0
@@ -386,6 +513,10 @@ def build_parser() -> argparse.ArgumentParser:
   python -m dig run --theme "楼盘名字里的暗号" --style retro_comic --handle your_douyin_id
   python -m dig character add --name 小圆 --photo me.jpg --stylize
   python -m dig run --theme "第一次租房避坑" --character 小圆
+  python -m dig validate --script my-script.json
+  python -m dig sheet --script my-script.json
+  python -m dig render --script my-script.json
+  python -m dig reroll --script output/xxx/script.json --panel 7
   python -m dig style add --from-image ref.jpg --name 复古港漫 --id hk_retro
   python -m dig batch --file topics.json
   python -m dig ui
@@ -443,11 +574,34 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--no-validate", action="store_true", help="跳过脚本体检（不建议）")
     d.set_defaults(func=cmd_render)
 
+    # reroll
+    rr = sub.add_parser("reroll", help="只重画指定的格，其余沿用（1 格 = 1 次计费）")
+    add_common(rr)
+    add_style_args(rr)
+    rr.add_argument("--script", required=True, help="作品目录里的 script.json")
+    rr.add_argument("--panel", "-p", action="append", required=True,
+                    help="第几格（从 1 数），可重复或写成 3,7")
+    rr.add_argument("--scene", default="", help="顺便换掉这一格的画面描述（只能配合单格）")
+    rr.add_argument("--caption", default="", help="顺便换掉这一格的短标题（只能配合单格）")
+    rr.add_argument("--character", "-c", default="")
+    rr.add_argument("--strict", action="store_true", help="把体检警告也当成错误")
+    rr.set_defaults(func=cmd_reroll)
+
+    # sheet
+    sh = sub.add_parser("sheet", help="只画角色定妆图（1 次计费），满意再出整套")
+    add_common(sh)
+    add_style_args(sh)
+    sh.add_argument("--script", default="", help="脚本（用它的主角和画风）")
+    sh.add_argument("--character", "-c", default="", help="已登记的主角 id")
+    sh.add_argument("--redraw", action="store_true", help="不要缓存里那张，重画一张（再计费一次）")
+    sh.set_defaults(func=cmd_sheet)
+
     # validate
     v = sub.add_parser("validate", help="只体检脚本，不生成（生图前先跑这个）")
     add_common(v)
     v.add_argument("--script", required=True, help="script.json 路径")
     v.add_argument("--style", default="", help="按指定画风体检")
+    v.add_argument("--character", "-c", default="", help="按指定主角体检")
     v.add_argument("--strict", action="store_true", help="把警告也当成错误")
     v.set_defaults(func=cmd_validate)
 
@@ -530,7 +684,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return func(args)
     except DigError as exc:
         print("\n✗ " + str(exc), file=sys.stderr)
-        return 2
+        return EXIT_ERROR
     except KeyboardInterrupt:
         print("\n已中断", file=sys.stderr)
         return 130

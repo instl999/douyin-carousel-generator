@@ -15,7 +15,7 @@ import os
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..config import ProviderConf
-from ..util import DigError, b64_data_uri, debug, guess_mime, read_bytes
+from ..util import DigError, debug
 from .base import (
     ImageEngine,
     encode_reference,

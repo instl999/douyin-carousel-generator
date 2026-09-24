@@ -25,6 +25,7 @@ DEFAULTS: Dict[str, Any] = {
     "characters_dir": "characters",
     "styles_dir": "styles",
     "assets_dir": "assets",
+    "cache_dir": ".cache",        # 生图缓存（按引擎 + 模型分开存）
     # 成图规格：抖音图文推荐 3:4
     "page": {
         "width": 1792,           # 参考样例原图就是 1792x2400
@@ -78,11 +79,16 @@ DEFAULTS: Dict[str, Any] = {
         },
     },
     "run": {
-        "workers": 3,             # 并发画图数
-        "attempts": 3,            # 单格重试次数
-        "cache": True,            # 相同 prompt 复用已生成的图
-        "seed": None,             # 固定种子便于复现
+        "workers": 3,             # 并发画图数（带参考图时会被强制降到 1）
+        "attempts": 3,            # 单格重试次数（400/401 这类重试也没用的错误不重试）
+        "cache": True,            # 相同 prompt + 同一引擎/模型 复用已生成的图
+        "seed": None,             # 固定种子便于复现（AgentPlan 不支持 seed，会被忽略）
         "fallback_to_mock": True, # 画图失败时用占位图兜底，保证整套能出片
+        "quality_check": True,    # 生成后自动质检（抓"顶部大片纯色空地"）
+        "quality_redraws": 1,     # 质检不过时重画几次（每次都计费）
+        "character_lock": True,   # 用参考图锁定主角
+        "character_sheet": True,  # 先画一张无场景的定妆图当锚点
+        "serial_when_refs": True, # 带参考图时强制串行（图生图并发会被网关掐断）
     },
 }
 
@@ -223,6 +229,10 @@ class Config:
     def characters_dir(self) -> str:
         return self.abspath(self.get("characters_dir", "characters"))
 
+    @property
+    def cache_dir(self) -> str:
+        return self.abspath(self.get("cache_dir", ".cache"))
+
     def use_mock(self) -> None:
         """--offline：所有引擎切到 mock。"""
         for kind in ("text", "vision", "image"):
@@ -242,6 +252,7 @@ ENV_MAP = {
     "DIG_STYLE": "style",
     "DIG_HANDLE": "handle",
     "DIG_OUTPUT_DIR": "output_dir",
+    "DIG_CACHE_DIR": "cache_dir",
     "DIG_FONT": "text.font",
 }
 

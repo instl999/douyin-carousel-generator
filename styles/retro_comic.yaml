@@ -33,6 +33,7 @@ panel:
   inner_shadow: true
 
 banner:
+  shape: rounded          # 参考样例的暖黄圆角条
   fill: "#E9C877"
   stroke: "#2B2622"
   stroke_width: 3
@@ -47,8 +48,7 @@ banner:
 watermark:
   enabled: true
   text: "抖音号：{handle}"
-  color: "#FFFFFF"
-  outline: "#00000066"
+  color: auto             # 米色纸上用墨色字；以前的白字对纸色只有 1.28:1
   font_size: 46
   icon: true
 
