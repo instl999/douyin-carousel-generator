@@ -10,8 +10,11 @@
 发送。它会吐出一份 JSON，直接存成 `topics.json`，然后：
 
 ```bash
-python -m dig batch --file topics.json --style retro_comic --character 小圆 --handle 你的抖音号
+python -m dig batch --file topics.json --style retro_comic --character my_ip --handle 你的抖音号
 ```
+
+每条选题里的 `title`、`type`、`beats_preview`、`hashtags` 会作为参考交给写脚本的模型
+（`beats_preview` 是这里验证过能拆点的前几格，脚本会顺着同样的句式往下写）。
 
 ---
 
