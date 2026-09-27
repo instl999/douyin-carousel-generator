@@ -69,8 +69,8 @@ Every sample uses the identical structure:
    while the art style, palette and character design stay locked.
 
 The samples mix glossaries, contrasts and proverbs. This tool's content direction goes one
-step further: every caption is an instruction the viewer can act on, and topics come from a
-library of books. See [AGENTS.md](../AGENTS.md) and
+step further: every caption is plain counsel that works on its own image, and topics come
+from a library of books. See [AGENTS.md](../AGENTS.md) and
 [prompts/topic_ideation_zh.md](../prompts/topic_ideation_zh.md).
 
 ## 3. Two engineering decisions that follow from this

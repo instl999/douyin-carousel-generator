@@ -136,14 +136,26 @@ def test_teaser_and_question_captions_are_warned():
         assert not validate.has_errors(issues), bad      # 只提示，不挡路
 
 
-def test_prescriptive_captions_are_not_flagged_as_teasers():
-    """误报会逼人绕过体检，正常的祈使句一条都不能误伤。"""
-    good = ["先想怎样会失败", "别当场答应借钱", "潜龙期：闷头练本事", "遇到小人绕着走",
-            "把抱怨换成提问", "“量体裁衣”：先算再花", "借钱前先问用途", "吃饭只吃七分饱",
-            "最后一步别省", "睡前一小时放下手机"]
+def test_plain_counsel_is_not_flagged():
+    """误报会逼人绕过体检，正常的大白话忠告一条都不能误伤。"""
+    good = ["刚入行，先把基本功练扎实", "借钱给朋友，只借丢得起的数", "本事不够时，别急着出风头",
+            "借钱前问一句：什么时候还", "遇到小人，别跟他当面硬刚", "有借有还，再借不难",
+            "发工资当天，先存下一成", "吃饭只吃七分饱", "最后一步别省", "睡前一小时放下手机"]
     deck = make_deck(good)
     issues = validate.validate_deck(deck, character=deck.character)
     assert "caption-teaser" not in codes(issues), validate.format_issues(issues)
+    assert "caption-label" not in codes(issues), validate.format_issues(issues)
+
+
+def test_label_prefix_captions_are_warned():
+    """"潜龙期：闷头练本事"只有看过整套的人才懂。每张图都要单独看得懂。"""
+    for bad in ["潜龙期：闷头练本事", "“量体裁衣”：先算再花", "老话：吃亏是福", "跃龙期:先小步试跳"]:
+        deck = make_deck([bad] + ["正常做法%d" % i for i in range(9)])
+        issues = validate.validate_deck(deck, character=deck.character)
+        assert "caption-label" in codes(issues, "warn"), bad
+        assert not validate.has_errors(issues), bad      # 只提示，不挡路
+        hit = [i for i in issues if i.code == "caption-label"][0]
+        assert "刚入行，先把基本功练扎实" in hit.fix      # 改法要给出大白话的样子
 
 
 def test_book_title_in_scene_is_warned():
@@ -198,8 +210,14 @@ def test_shipped_example_shows_the_content_direction():
     assert 5 <= len(deck.pages) <= 7
     for beat in deck.all_beats:
         assert not validate.TEASER_RE.search(beat.caption), beat.caption
+        assert not validate.LABEL_RE.match(beat.caption), beat.caption
+        # 单独看也能懂：每句都是"场景，做法"，装得下这两样
+        assert "，" in beat.caption and len(beat.caption) >= 9, beat.caption
         assert "《" not in beat.scene, beat.scene
         assert beat.note, "口播备注要写这条做法为什么管用"
+    # 乾卦的原词放在口播备注里，不上图
+    assert any("潜龙勿用" in b.note for b in deck.all_beats)
+    assert not any("龙" in b.caption for b in deck.all_beats)
 
 
 def test_topic_samples_carry_a_source():

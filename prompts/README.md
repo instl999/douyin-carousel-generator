@@ -27,28 +27,32 @@ account whose one promise is **"watch it, then do it"**. Then it:
 1. **Explains the format's mechanics**: 5–7 images, two panels each, 5–14 characters per
    caption. One post is therefore 10–14 instructions that viewers swipe through.
 2. **States five hard criteria** a topic must pass. The decisive one: the topic must split
-   into **10–14 parallel instructions a viewer can act on today**, each drawable as the
+   into **10–14 parallel pieces of advice a viewer can act on today**, each drawable as the
    protagonist doing it. Abstract advice ("be patient") fails; a concrete action ("wait a
    night before replying") passes.
-3. **Supplies six structures that teach**: rules, stages, steps, don't/do pairs, "when X, do
-   Y", and an old saying followed by today's action. At least four must be represented.
-4. **Carries a source library** of the reference books: Munger's *Poor Charlie's Almanack*,
+3. **Sets the caption voice: plain counsel that works on its own.** Many viewers see one
+   image by itself, so each caption states the situation and what to do in everyday words,
+   like 刚入行，先把基本功练扎实. Book terms, classical phrases, metaphors and label prefixes
+   like 潜龙期： stay off the images; they go in the title, post copy and voice-over note.
+4. **Supplies six structures that teach**: rules, stages, steps, don't/do pairs, "when X, do
+   Y", and the plain advice behind old sayings. At least four must be represented.
+5. **Carries a source library** of the reference books: Munger's *Poor Charlie's Almanack*,
    Schopenhauer's *The Wisdom of Life*, Okada Takehiko's biography of Wang Yangming, 曾仕强's
    lectures on the 易经, Wu Jun's 见识, a book of 66 rules for dealing with people, a six-volume
    set of historical strategy stories, 曲黎敏 on the 黄帝内经, and two proverb and aphorism
    collections. For each it lists only the ideas that turn directly into actions,
    paraphrased rather than quoted, with the structures they suit and an example topic.
    At least 9 of the 12 topics must come from it, drawing on at least 5 books.
-5. **Sets content boundaries**: teach self-protection, not scheming (the 66-rules book needs
+6. **Sets content boundaries**: teach self-protection, not scheming (the 66-rules book needs
    that filter); health means daily habits, never diagnosis or remedies; money means habits,
    never stock picks; no absolute claims; the 易经 is about how to act, not fortune-telling;
    no invented quotes.
-6. **Takes your account context**: niche, target audience, protagonist, art style, and
+7. **Takes your account context**: niche, target audience, protagonist, art style, and
    topics you have already covered.
-7. **Forces self-validation**: for every topic the model must write out the first four
-   captions, in the imperative, proving the topic actually decomposes. If it cannot, it must
-   pick a different one.
-8. **Returns strict JSON** that feeds directly into `dig batch --file topics.json`. Each
+8. **Forces self-validation**: for every topic the model must write out the first four
+   captions as plain standalone counsel, proving the topic actually decomposes. If it
+   cannot, it must pick a different one.
+9. **Returns strict JSON** that feeds directly into `dig batch --file topics.json`. Each
    topic's `source` field travels into the shot-script prompt, so the script stays faithful to
    the book, and is printed in `caption.txt`.
 

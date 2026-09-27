@@ -63,21 +63,25 @@ def test_source_goes_into_the_script_prompt():
     assert parse_meta(with_src)["task"] == "script"     # 埋给 mock 的参数照样能解析
 
 
-def test_script_prompt_asks_for_instructions_not_teasers():
-    """回归测试：旧提示词要第一格"反常识、抛一个我以为…其实…"，写出来的全是悬念格。"""
+def test_script_prompt_asks_for_plain_standalone_counsel():
+    """回归测试。旧提示词要第一格"反常识、抛一个我以为…其实…"，写出来全是悬念格；
+    后来又推荐过"潜龙期：闷头练本事"这种标签写法，单独刷到那一张的人根本看不懂。"""
     s = script_gen.SYSTEM
-    assert "祈使句" in s and "照着做" in s
+    assert "单独" in s and "直白的忠告" in s and "大白话" in s
+    assert "刚入行，先把基本功练扎实" in s          # 正面例子是大白话
     assert "不卖关子" in s
     assert "我以为" not in s
     assert "不编造原文" in s
     assert "《》" in s                 # 场景里不许写书名号
+    # 书里的概念要进标题和口播，短标题只放大白话
+    assert "口播" in script_gen.USER_TMPL and "不放进短标题" in script_gen.USER_TMPL
 
 
 def test_panel_prompt_strips_book_title_marks_from_theme():
     from dig.prompt_builder import panel_prompt
 
     deck = Deck(theme="《易经》乾卦六条龙", title="一个标题")
-    beat = Beat(caption="潜龙期：闷头练本事", scene="主角深夜独自在工位前练习，窗外是写字楼群")
+    beat = Beat(caption="刚入行，先把基本功练扎实", scene="主角深夜独自在工位前练习，窗外是写字楼群")
     style = load_style(load_config(root=ROOT), "retro_comic")
     text = panel_prompt(beat, deck, style, None, 1, 12)
     assert "《" not in text and "易经乾卦六条龙" in text
@@ -151,10 +155,11 @@ def test_mock_script_shape():
     assert all(len(p.beats) == 2 for p in deck.pages)
     assert all(1 <= len(b.caption) <= 14 for b in deck.all_beats)
     assert deck.hashtags
-    # 离线占位文案也要是祈使句，不能示范卖关子
-    from dig.validate import TEASER_RE
+    # 离线占位文案也要是直白的做法，不能示范卖关子和标签写法
+    from dig.validate import LABEL_RE, TEASER_RE
 
     assert not any(TEASER_RE.search(b.caption) for b in deck.all_beats)
+    assert not any(LABEL_RE.match(b.caption) for b in deck.all_beats)
 
 
 def test_mock_image_is_png():
