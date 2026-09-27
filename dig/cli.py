@@ -1,7 +1,7 @@
 """命令行入口。
 
 最常用的一条：
-    python -m dig run --theme "楼盘名字里的暗号" --style retro_comic --handle your_douyin_id
+    python -m dig run --theme "楼盘名字里的暗号" --style retro_comic
 """
 from __future__ import annotations
 
@@ -69,9 +69,9 @@ def cmd_run(args) -> int:
         character_id=args.character,
         pages=args.pages,
         panels=args.panels,
-        handle=args.handle,
         angle=args.angle,
         audience=args.audience,
+        source=args.source,
         out_dir=args.out,
         zip_it=args.zip,
         allow_in_image_text=args.allow_text_in_image,
@@ -113,9 +113,9 @@ def cmd_script(args) -> int:
         character_id=args.character,
         pages=args.pages,
         panels=args.panels,
-        handle=args.handle,
         angle=args.angle,
         audience=args.audience,
+        source=args.source,
         out_dir=args.out,
         script_only=True,
     )
@@ -138,7 +138,6 @@ def cmd_render(args) -> int:
         style_id=args.style,
         style_prompt=args.style_prompt,
         character_id=args.character,
-        handle=args.handle,
         out_dir=args.out or os.path.dirname(os.path.abspath(args.script)),
         render_only=args.skip_images,
         zip_it=args.zip,
@@ -202,7 +201,6 @@ def cmd_batch(args) -> int:
         style_prompt=args.style_prompt,
         character_id=args.character,
         pages=args.pages,
-        handle=args.handle,
         zip_it=args.zip,
     )
     ok = [r for r in results if not r.get("error")]
@@ -383,7 +381,8 @@ def build_parser() -> argparse.ArgumentParser:
         epilog="""示例：
   python -m dig doctor
   python -m dig run --theme "楼盘名字里的暗号" --offline
-  python -m dig run --theme "楼盘名字里的暗号" --style retro_comic --handle your_douyin_id
+  python -m dig run --theme "楼盘名字里的暗号" --style retro_comic
+  python -m dig run --theme "想把事做成，先想怎样会失败" --source "《穷查理宝典》· 逆向思维"
   python -m dig character add --name 小圆 --photo me.jpg --stylize
   python -m dig run --theme "第一次租房避坑" --character 小圆
   python -m dig style add --from-image ref.jpg --name 复古港漫 --id hk_retro
@@ -402,9 +401,10 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--character", "-c", default="", help="主角 id（个人 IP）")
     r.add_argument("--pages", type=int, default=None, help="出几张图，5~7 推荐")
     r.add_argument("--panels", type=int, default=None, help="每张几格，默认 2")
-    r.add_argument("--handle", default="", help="抖音号，写进页脚水印")
     r.add_argument("--angle", default="", help="切入角度，比如 '从新手视角'")
     r.add_argument("--audience", default="", help="目标观众，比如 '刚毕业的年轻人'")
+    r.add_argument("--source", default="",
+                   help="取材出处：书名 + 具体观点，如 '《穷查理宝典》· 逆向思维'")
     r.add_argument("--size", default="", help="成图尺寸，如 1440x1920")
     r.add_argument("--workers", type=int, default=0, help="并发生图数")
     r.add_argument("--seed", type=int, default=None, help="固定随机种子，便于复现")
@@ -424,9 +424,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--character", "-c", default="")
     s.add_argument("--pages", type=int, default=None)
     s.add_argument("--panels", type=int, default=None)
-    s.add_argument("--handle", default="")
     s.add_argument("--angle", default="")
     s.add_argument("--audience", default="")
+    s.add_argument("--source", default="", help="取材出处：书名 + 具体观点")
     s.set_defaults(func=cmd_script)
 
     # render
@@ -435,7 +435,6 @@ def build_parser() -> argparse.ArgumentParser:
     add_style_args(d)
     d.add_argument("--script", required=True, help="script.json 路径")
     d.add_argument("--character", "-c", default="")
-    d.add_argument("--handle", default="")
     d.add_argument("--skip-images", action="store_true", help="不重新生图，只重排文字")
     d.add_argument("--no-cache", action="store_true")
     d.add_argument("--zip", action="store_true")
@@ -458,7 +457,6 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--file", required=True, help="选题 JSON 文件")
     b.add_argument("--character", "-c", default="")
     b.add_argument("--pages", type=int, default=None)
-    b.add_argument("--handle", default="")
     b.add_argument("--limit", type=int, default=0, help="只跑前 N 条")
     b.add_argument("--zip", action="store_true")
     b.set_defaults(func=cmd_batch)

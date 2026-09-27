@@ -6,6 +6,8 @@
   - 忘了写 character → 12 格里主角一格一个样（实测必翻车）
   - 每页格数不一致 → 有的页双格有的页单格，整套看起来像事故
   - 标题重复 → 这个形式最忌讳同义反复
+  - 标题写成问句、卖关子 → 这套图要让人看完学会一套做法，悬念格什么也没教
+  - 场景里写《书名》 → 模型会把书名当成要画的字，画出一本乱码封面
 
 错误（error）会直接挡住生成；警告（warn）只提示，不挡路。
 """
@@ -31,6 +33,14 @@ PANELS_MAX = 3
 TEXT_IN_SCENE = re.compile(
     r"(写着|写有|招牌上|牌子上|横幅上|字幕|标语|文字是|标题是|logo|LOGO|书名|"
     r"招牌写|门牌写|写明)"
+)
+# 书名号：取材自书的选题最容易顺手写进场景，模型会照着画出书名
+BOOK_TITLE_IN_SCENE = re.compile(r"《[^》]{1,30}》")
+# 卖关子 / 只提问：这一格没给出做法，观众刷完什么也没学到。
+# 只收几乎不会误伤的写法 —— 误报多了，人就会绕过体检。
+TEASER_RE = re.compile(
+    r"(你知道吗|竟然|居然|没想到|想不到|震惊|绝了|笑出声|看到最后|揭秘)"
+    r"|[?？]$|(…|\.{3})$"
 )
 # 序号前缀的唯一定义。script_gen.clean_caption 也用这一条 ——
 # 清洗和体检必须完全同口径，否则会出现"洗掉了又被判错"的荒唐情况。
@@ -143,6 +153,10 @@ def validate_deck(
                 if SERIAL_HEAD.search(cap):
                     err(where, "caption-serial", "短标题带序号：「%s」" % cap,
                         "去掉序号。观众看的是内容，不是第几条")
+                if TEASER_RE.search(cap):
+                    warn(where, "caption-teaser", "短标题在卖关子或只是提问，没给出做法：「%s」" % cap,
+                         "直接写做法：先做什么 / 别做什么 / 遇到什么就怎么办。"
+                         "悬念和问句留给发布文案，格子里只放答案")
                 if _unbalanced_quotes(cap):
                     warn(where, "caption-quotes", "短标题引号不成对：「%s」" % cap,
                          "补齐引号，否则排版出来是半个引号")
@@ -166,6 +180,12 @@ def validate_deck(
                     warn(where, "scene-wants-text", "画面描述要求画文字（“%s”）" % hit.group(0),
                          "本工具强制画面不出字，文字由排版贴上去。"
                          "把这段改成用画面表达，或者生成时加 --allow-text-in-image")
+                book = BOOK_TITLE_IN_SCENE.search(scene)
+                if book:
+                    warn(where, "scene-book-title",
+                         "画面描述里写了书名（“%s”），模型会把它画成乱码字" % book.group(0),
+                         "删掉书名，写成「一本旧书」「一卷竹简」就行；"
+                         "出处写进 source 字段和发布文案")
                 if character and character.name:
                     if ("主角" not in scene) and (character.name not in scene):
                         warn(where, "scene-no-lead", "画面描述里没提到主角",
@@ -185,11 +205,8 @@ def validate_deck(
                  "给一个跨图锚点，比如「红围巾」「圆眼镜」")
 
     # ---- 发布相关 ------------------------------------------------------ #
-    if not (deck.handle or "").strip():
-        warn("脚本", "no-handle", "没有抖音号，页脚水印不会出现",
-             "script.json 里写 handle，或生成时加 --handle 你的抖音号")
     if not (deck.title or "").strip():
-        warn("脚本", "no-title", "没有作品标题", "title 写 10~18 字带钩子的标题")
+        warn("脚本", "no-title", "没有作品标题", "title 写 10~18 字，直接说看完能学会什么")
     if not deck.hashtags:
         warn("脚本", "no-hashtags", "没有话题标签", "给 3~5 个话题，帮助分发")
 

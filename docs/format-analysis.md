@@ -26,7 +26,7 @@ Every sample uses the identical structure:
 │ │      ╰──────────╯    │ │
 │ │        [art]         │ │
 │ └──────────────────────┘ │
-│      ♪ 抖音号：XXXXXX      │  ← footer watermark, white text with dark outline
+│      ♪ 抖音号：XXXXXX      │  ← footer watermark in the samples (this tool does not draw it)
 └──────────────────────────┘
 ```
 
@@ -41,7 +41,7 @@ Every sample uses the identical structure:
 | Banner width | Tracks text length, max ~88% of panel | `max_width: 0.88` |
 | Caption typeface | Heavy black sans (Source Han Sans Heavy class), pure black | Auto-detected system CJK bold |
 | Caption length | **5–14 characters**, most commonly 6–10 | `clean_caption` caps at 14 |
-| Footer | Music-note glyph + `抖音号：xxx`, white with dark outline | `footer: 128` |
+| Footer | Music-note glyph + `抖音号：xxx`, white with dark outline | Not drawn. The bottom margin equals the side margins |
 | Texture | Halftone + paper grain + vignette + worn edges | Four `texture` toggles |
 
 ## 2. Content rules (these matter more than the layout)
@@ -68,6 +68,11 @@ Every sample uses the identical structure:
 5. **Scenes vary, the world does not.** Interior/exterior, day/night, wide/close alternate,
    while the art style, palette and character design stay locked.
 
+The samples mix glossaries, contrasts and proverbs. This tool's content direction goes one
+step further: every caption is an instruction the viewer can act on, and topics come from a
+library of books. See [AGENTS.md](../AGENTS.md) and
+[prompts/topic_ideation_zh.md](../prompts/topic_ideation_zh.md).
+
 ## 3. Two engineering decisions that follow from this
 
 **① Text is rendered locally, not drawn by the model.**
@@ -78,7 +83,7 @@ nothing: `dig render --script script.json --skip-images` re-typesets in seconds.
 panel prompt hard-forbids text in the image.
 
 **② Panel art is generated per panel, not per page.**
-Asking a model to draw a complete page — two panels, banners, footer — surrenders control of
+Asking a model to draw a complete page — two panels and their banners — surrenders control of
 composition and guarantees mangled text. Instead each panel is requested at 1.15× its final
 box and centre-cropped, so composition stays stable and any single panel can be re-rolled
 independently.
@@ -87,7 +92,7 @@ independently.
 
 - Carousel posts allow up to 35 images; 3:4 or 9:16 are recommended. This tool defaults to 3:4.
 - The app UI covers roughly the bottom 200–260px (caption area and buttons), so nothing
-  important belongs there. The footer watermark is placed at the top edge of that zone,
-  right on the safe line.
+  important belongs there. Caption banners sit at the top of each panel, far above that
+  zone; only the bottom of the lower panel's art can be covered.
 - The first image decides click-through, which is why `prompt_builder.cover_hint()` adds
   extra emphasis to panel 1.

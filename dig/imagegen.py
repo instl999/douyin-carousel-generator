@@ -27,12 +27,16 @@ def _say(msg: str) -> None:
         log(msg)
 
 
-def cache_path(cache_dir: str, prompt: str, width: int, height: int, refs: List[str], seed) -> str:
+def cache_path(
+    cache_dir: str, prompt: str, width: int, height: int, refs: List[str], seed, engine: str = ""
+) -> str:
+    """engine 必须进 key：同一份脚本先 --offline 试跑、再真跑时，
+    不这样做会把 mock 占位图当成缓存命中，一格都不画就"出图"了。"""
     ref_sig = "|".join(
         "%s:%d" % (os.path.basename(r), os.path.getsize(r) if os.path.isfile(r) else 0)
         for r in refs
     )
-    key = sha1(prompt, width, height, ref_sig, seed if seed is not None else "")
+    key = sha1(engine, prompt, width, height, ref_sig, seed if seed is not None else "")
     return os.path.join(cache_dir, key[:20] + ".png")
 
 
@@ -56,6 +60,7 @@ def generate_panels(
     total = len(beats)
     negative = panel_negative(style)
     base_refs = character.ref_images() if character else []
+    engine_id = getattr(engine, "name", type(engine).__name__)
 
     # 锚点格：先单独画第 1 格，再把它当参考图喂给后面每一格。
     # 没有这一步，12 格里的主角会一格一个样（实测：中山装→红背心→橙上衣）。
@@ -106,7 +111,7 @@ def generate_panels(
         beat.prompt = prompt
 
         dest = os.path.join(raw_dir, "%02d.png" % (i + 1))
-        cache = cache_path(cache_dir, prompt, width, height, refs, seed_for(i))
+        cache = cache_path(cache_dir, prompt, width, height, refs, seed_for(i), engine=engine_id)
 
         if use_cache and os.path.isfile(cache):
             _copy(cache, dest)

@@ -20,14 +20,14 @@ from dig.models import Beat, Character, Deck, Page  # noqa: E402
 from dig.util import DigError  # noqa: E402
 
 
-def make_deck(captions, scenes=None, panels=2, character=True, handle="test_id"):
+def make_deck(captions, scenes=None, panels=2, character=True):
     scenes = scenes or ["主角站在街边看着远处的高楼，午后阳光，行人经过" for _ in captions]
     beats = [Beat(caption=c, scene=s) for c, s in zip(captions, scenes)]
     pages = [
         Page(index=i + 1, beats=beats[i * panels : (i + 1) * panels])
         for i in range((len(beats) + panels - 1) // panels)
     ]
-    deck = Deck(theme="测试主题", title="一个足够长的测试标题", pages=pages, handle=handle)
+    deck = Deck(theme="测试主题", title="一个足够长的测试标题", pages=pages)
     deck.hashtags = ["#测试"]
     if character:
         deck.character = Character(
@@ -125,6 +125,40 @@ def test_reference_style_caption_survives():
     assert not validate.has_errors(issues)
 
 
+def test_teaser_and_question_captions_are_warned():
+    """这套图要让人看完学会做法。卖关子的格子什么也没教，必须提示。"""
+    teasers = ["第4个我笑出声", "你知道吗这招", "原来竟然这样", "存不下钱是因为？",
+               "有些话别乱说…", "看到最后再说"]
+    for bad in teasers:
+        deck = make_deck([bad] + ["正常做法%d" % i for i in range(9)])
+        issues = validate.validate_deck(deck, character=deck.character)
+        assert "caption-teaser" in codes(issues, "warn"), bad
+        assert not validate.has_errors(issues), bad      # 只提示，不挡路
+
+
+def test_prescriptive_captions_are_not_flagged_as_teasers():
+    """误报会逼人绕过体检，正常的祈使句一条都不能误伤。"""
+    good = ["先想怎样会失败", "别当场答应借钱", "潜龙期：闷头练本事", "遇到小人绕着走",
+            "把抱怨换成提问", "“量体裁衣”：先算再花", "借钱前先问用途", "吃饭只吃七分饱",
+            "最后一步别省", "睡前一小时放下手机"]
+    deck = make_deck(good)
+    issues = validate.validate_deck(deck, character=deck.character)
+    assert "caption-teaser" not in codes(issues), validate.format_issues(issues)
+
+
+def test_book_title_in_scene_is_warned():
+    """取材自书的选题，最容易顺手写出"主角翻开《易经》"—— 模型会把书名画成乱码。"""
+    deck = make_deck(
+        ["先想怎样会失败", "别当场答应借钱"],
+        scenes=["主角坐在窗边翻开《穷查理宝典》认真读，窗外是傍晚的街道和行人",
+                "主角走在街上，背景是热闹的市集，光线温暖"],
+    )
+    issues = validate.validate_deck(deck, character=deck.character)
+    assert "scene-book-title" in codes(issues, "warn")
+    hit = [i for i in issues if i.code == "scene-book-title"][0]
+    assert "穷查理宝典" in hit.message and "source" in hit.fix
+
+
 def test_strict_promotes_warnings():
     deck = make_deck(["标题%d" % i for i in range(10)], character=False)
     issues = validate.validate_deck(deck, character=None, strict=True)
@@ -149,6 +183,35 @@ def test_shipped_example_is_clean():
         deck = Deck.from_dict(json.load(fh))
     issues = validate.validate_deck(deck, character=deck.character)
     assert not issues, validate.format_issues(issues)
+
+
+def test_shipped_example_shows_the_content_direction():
+    """模板会被照抄，所以它本身必须示范新方向：有出处、全是双格、每格一条做法。"""
+    path = os.path.join(ROOT, "examples", "script.minimal.json")
+    with open(path, "r", encoding="utf-8-sig") as fh:
+        data = json.load(fh)
+    assert "handle" not in data
+    assert data.get("source"), "模板要示范怎么写取材出处"
+    deck = Deck.from_dict(data)
+    assert deck.source == data["source"]
+    assert all(len(p.beats) == 2 for p in deck.pages)
+    assert 5 <= len(deck.pages) <= 7
+    for beat in deck.all_beats:
+        assert not validate.TEASER_RE.search(beat.caption), beat.caption
+        assert "《" not in beat.scene, beat.scene
+        assert beat.note, "口播备注要写这条做法为什么管用"
+
+
+def test_topic_samples_carry_a_source():
+    """示例选题是照着书取材的，batch 会把 source 一路带进脚本提示词。"""
+    path = os.path.join(ROOT, "examples", "topics.sample.json")
+    with open(path, "r", encoding="utf-8-sig") as fh:
+        topics = json.load(fh)
+    assert topics
+    for item in topics:
+        assert item.get("theme"), item
+        assert item.get("source"), item
+        assert "handle" not in item
 
 
 # --------------------------------------------------------------------------- #
@@ -191,12 +254,13 @@ def test_skip_validation_lets_it_through():
         assert len(result["files"]) == 5
 
 
-def test_script_style_and_handle_survive_render():
-    """脚本里声明的画风和抖音号，不能被默认值冲掉。"""
+def test_script_style_and_source_survive_render():
+    """脚本里声明的画风和取材出处，不能被默认值冲掉。"""
     from dig import pipeline
 
-    deck = make_deck(["标题%d" % i for i in range(10)], handle="from_script")
+    deck = make_deck(["标题%d" % i for i in range(10)])
     deck.style_id = "guochao_ink"
+    deck.source = "《人生的智慧》叔本华 · 建议和格言"
     with tempfile.TemporaryDirectory() as tmp:
         script = os.path.join(tmp, "script.json")
         with open(script, "w", encoding="utf-8") as fh:
@@ -205,18 +269,22 @@ def test_script_style_and_handle_survive_render():
         cfg.use_mock()
         cfg.set("output_dir", tmp)
         cfg.set("style", "retro_comic")     # 配置默认值，不应该赢
-        cfg.set("handle", "")
         cfg.set("run.workers", 1)
         result = pipeline.run(cfg, script_path=script, out_dir=os.path.join(tmp, "out"))
         assert result["deck"].style_id == "guochao_ink"
-        assert result["deck"].handle == "from_script"
+        assert result["deck"].source == "《人生的智慧》叔本华 · 建议和格言"
+        with open(result["caption"], "r", encoding="utf-8") as fh:
+            assert "【取材】《人生的智慧》叔本华" in fh.read()
+        with open(result["manifest"], "r", encoding="utf-8") as fh:
+            assert json.load(fh)["source"] == "《人生的智慧》叔本华 · 建议和格言"
 
 
 def test_cli_override_beats_script():
     from dig import pipeline
 
-    deck = make_deck(["标题%d" % i for i in range(10)], handle="from_script")
+    deck = make_deck(["标题%d" % i for i in range(10)])
     deck.style_id = "guochao_ink"
+    deck.source = "脚本里写的出处"
     with tempfile.TemporaryDirectory() as tmp:
         script = os.path.join(tmp, "script.json")
         with open(script, "w", encoding="utf-8") as fh:
@@ -226,11 +294,31 @@ def test_cli_override_beats_script():
         cfg.set("output_dir", tmp)
         cfg.set("run.workers", 1)
         result = pipeline.run(
-            cfg, script_path=script, style_id="clay_3d", handle="from_cli",
+            cfg, script_path=script, style_id="clay_3d", source="命令行给的出处",
             out_dir=os.path.join(tmp, "out"),
         )
         assert result["deck"].style_id == "clay_3d"
-        assert result["deck"].handle == "from_cli"
+        assert result["deck"].source == "命令行给的出处"
+
+
+def test_batch_passes_source_through():
+    """topics.json 里的 source 要一路带到 run()，否则书里的观点到不了写脚本那一步。"""
+    from dig import pipeline
+
+    seen = []
+    real_run = pipeline.run
+    pipeline.run = lambda cfg, **kw: seen.append(kw) or {"out_dir": "x"}
+    try:
+        pipeline.run_batch(load_config(root=ROOT), [
+            {"theme": "主题一", "source": "《见识》吴军 · 拒绝伪工作", "angle": "a", "audience": "b"},
+            "只有主题的一条",
+        ])
+    finally:
+        pipeline.run = real_run
+    assert seen[0]["source"] == "《见识》吴军 · 拒绝伪工作"
+    assert seen[0]["angle"] == "a" and seen[0]["audience"] == "b"
+    assert "source" not in seen[1]
+    assert "handle" not in seen[0]
 
 
 def test_bad_json_gives_a_readable_error():

@@ -16,7 +16,8 @@ python -m dig doctor
 python -m dig run --theme "任意主题" --offline
 
 # 2. Write the script yourself. Do NOT call a text model for this.
-#    Copy examples/script.minimal.json and replace the content.
+#    Pick the idea from the source library first (prompts/topic_ideation_zh.md §四),
+#    then copy examples/script.minimal.json and replace the content.
 
 # 3. Check it BEFORE spending anything. Free.
 python -m dig validate --script my-script.json
@@ -39,11 +40,13 @@ output that cannot be posted.
 |---|---|
 | **Two beats per page**, always | The reference format is two panels per image. A single beat per page makes the panel portrait-shaped, halves the information density, and the model tends to paint a dead area under the banner |
 | Captions are **5–14 Chinese characters** | Longer and the layout shrinks the font, so sizes differ between panels in one set |
+| **Every caption is an instruction** the viewer can carry out | The account's promise is "watch it, then do it". A question or a teaser panel teaches nothing. `dig validate` warns on question marks, trailing ellipses and teaser words (`caption-teaser`) |
 | **No serial numbers** in captions (`1.`, `第3格：`) | Viewers read content, not indices |
 | **Every caption unique** | This format dies on repetition — one repeated beat loses a chunk of the audience |
 | **Same beat count on every page** | Mixed 1/2-panel pages make the set look broken |
 | **5–7 pages** (3–10 accepted) | Fewer is thin, more never gets swiped to the end |
 | **Never ask for text in `scene`** | Panel prompts hard-forbid text in the image. "牌子上写着…" produces garbled glyphs. Captions are typeset locally afterwards |
+| **No 《book titles》 in `scene`** | "主角翻开《易经》" makes the model paint the title as garbled glyphs on the cover. Put the book in `source` and the post copy (`scene-book-title`) |
 | **Always define a `character`** | Without one the protagonist changes on every panel — measured, not theoretical |
 
 ## The character rule, specifically
@@ -75,19 +78,68 @@ Because the sheet has no scene in it, your `scene` text is the *only* thing deci
 composition. Vary it deliberately across the set — standing/crouching, interior/exterior,
 wide/close — or every panel will look like the same shot with new props.
 
+## Choosing and framing the topic
+
+The goal of every set: **a viewer finishes it knowing what to do.** Not "that was
+interesting", but "I learned something, and next time I'll do exactly this."
+
+Frame topics from the books in the source library,
+[prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md) §四 取材库. It covers Munger,
+Schopenhauer, Wang Yangming, 曾仕强's 易经, Wu Jun, the 66 rules for dealing with people,
+the historical strategy stories, 黄帝内经 daily habits and the proverb collections. Each entry
+lists only ideas that turn directly into actions. Then:
+
+1. Pick **one specific idea** from one book, e.g. Munger's inversion or the six dragons of 乾.
+2. Put it in the script's `source` field: `"《穷查理宝典》· 反过来想"`. It is printed in
+   `caption.txt` for the operator and never drawn.
+3. Choose a structure: rules, stages, steps, don't/do pairs, "when X, do Y", or old saying
+   plus today's action. The library says which structures suit each book.
+4. Translate the idea into **today's situations**: work, people, money, sleep, study,
+   decisions. Stay faithful to the book. Never invent quotes or chapters.
+
+Boundaries. Break one and the topic is out:
+
+- Teach people to protect themselves, get things done and get along. Never teach scheming,
+  deceiving or getting back at people (the 66-rules book has plenty of that; skip it).
+- Health means daily habits only (sleep, food, mood, movement). No diagnosis, treatment,
+  remedies or dosages. Add "身体不适请及时就医" to the post copy.
+- Money means habits and principles only. No stock picks, no promised returns.
+- No absolute claims (一定, 根治, 稳赚). 易经 is about how to act, never fortune-telling.
+
 ## Writing good captions
 
-The set must read as one list, not twelve unrelated lines. Keep the sentence pattern
-identical throughout — all `"X"是Y`, or all four-character phrases, or all imperatives.
-That parallelism is what makes people swipe to the end.
+Each caption is **one instruction, in the imperative, concrete enough to act on today**:
 
-First beat is the hook. Last beat is the payoff — the line worth screenshotting.
+- Start with the action: `先…` / `别…` / `…前先…` / `遇到…就…` / `把…换成…`.
+- Name the act, the object or the test. `要有耐心` fails. `等一晚再回消息` works.
+- State the answer on the panel. No questions, no `第4个绝了`, no `看到最后`. Suspense
+  belongs in the post copy, if anywhere.
+- When you use a classical term or a book's concept, follow it straight away with the plain
+  action: `潜龙期：闷头练本事`, `量体裁衣：先算再花`.
+
+The set must read as one list, not twelve unrelated lines. Keep the sentence pattern
+identical throughout: all `先X`, or all `别X`, or all `阶段：做Y`. That parallelism is
+what makes people swipe to the end.
+
+The two panels on one image are a pair: one "do this" and one "don't do that", or two
+consecutive steps, or two responses to the same situation.
+
+First beat is the hook: the most useful or least obvious instruction, stated plainly. Last
+beat is the payoff, the one line that sums up the set and is worth screenshotting. The `note`
+on each beat says why the instruction works; it feeds the voice-over and is never drawn.
+
+Good (from `examples/script.minimal.json`): `潜龙期：闷头练本事` / `潜龙期：别急着出头`.
+
+Thin: `心态决定一切` (no action), `第3个我笑了` (teaser), `你为什么总存不下钱？` (question).
 
 ## Writing good scenes
 
 `谁 + 在哪 + 在干什么 + 什么情绪`, 30–60 characters. Concrete and literal: the picture
-should state the caption, not allude to it. Vary interior/exterior and wide/close across
-the set while keeping the world consistent.
+should state the caption, not allude to it. **Show the protagonist carrying out this panel's
+instruction**, in a situation viewers meet today. For a `别…` caption, draw the moment they
+stop, hold back or say no. Draw neither the book nor the historical figures; the story goes
+into `note` and the post copy. Vary interior/exterior and wide/close across the set while
+keeping the world consistent.
 
 **Describe a full environment, not just the person.** Name what is behind and around them
 — the far buildings, the wall, the sky, the other people. Panels are landscape and the
@@ -107,7 +159,8 @@ Thin: `主角在工地检查质量` — no environment, no camera distance, no l
 
 - Each panel is one billed call. `pages × panels` = your bill. Check it before running.
 - **Caching is on.** Re-running the same script only regenerates panels whose prompt
-  changed. Editing one caption and re-rendering costs one panel, not twelve.
+  changed. Editing one caption and re-rendering costs one panel, not twelve. The cache is
+  kept per engine, so `--offline` placeholders are never served to a real render.
 - To re-typeset captions with **zero** image spend: `dig render --script X --skip-images`.
 - Panels that fail fall back to placeholder art so the set still completes. Check
   `manifest.json` → `errors` afterwards and re-run to fill them in.
@@ -138,7 +191,8 @@ Full detail: [docs/provider-notes.md](docs/provider-notes.md).
 2. Confirm the protagonist is the same person in every panel.
 3. Confirm no garbled text appeared inside the art.
 4. Check `manifest.json` → `errors` is empty.
-5. Confirm the footer watermark shows the right Douyin ID.
+5. Read the captions in order. Each one must be an instruction a viewer could act on today.
+   If the idea comes from a book, `source` and the post copy both name it.
 
 `caption.txt` in the output directory carries this checklist plus the ready-to-paste post
 copy.

@@ -15,7 +15,6 @@ page:
   background: "#FBF4E6"
   margin: 52
   gap: 28
-  footer: 122
 
 panel:
   border: 2
@@ -31,10 +30,6 @@ banner:
   font_size: 74
   min_font_size: 30
   top: 36
-
-watermark:
-  color: "#FFFFFF"
-  outline: "#00000055"
 
 texture:
   grain: 0.04

@@ -118,6 +118,20 @@ def test_sheet_is_generated_then_cached():
         assert engine.calls == 1, "同一个角色+画风应该命中缓存"
 
 
+def test_offline_sheet_is_never_reused_by_a_real_engine():
+    """先 --offline 试跑、再真跑：mock 画的占位定妆图绝不能被真引擎当成缓存命中，
+    否则真模型拿到的长相参考是一个灰色剪影。"""
+    class RealLooking(CountingEngine):
+        name = "ark-image"
+
+    mock, real = CountingEngine(), RealLooking()
+    with tempfile.TemporaryDirectory() as tmp:
+        charsheet.ensure_character_sheet(_character(), _style(), mock, tmp, os.path.join(tmp, "a"))
+        charsheet.ensure_character_sheet(_character(), _style(), real, tmp, os.path.join(tmp, "b"))
+    assert mock.calls == 1
+    assert real.calls == 1, "真引擎命中了 mock 画的缓存"
+
+
 def test_engine_failure_falls_back_quietly():
     """定妆图画不出来时要退回旧办法，而不是让整套图生成失败。"""
     class Broken(MockImage):
@@ -142,7 +156,7 @@ def test_pipeline_uses_the_sheet_for_every_panel():
         Beat(caption="标题%d" % i, scene="主角站在街边看远处的楼群，午后阳光，行人经过")
         for i in range(6)
     ]
-    deck = Deck(theme="t", title="一个够长的测试标题", handle="h",
+    deck = Deck(theme="t", title="一个够长的测试标题",
                 pages=[Page(index=i + 1, beats=beats[i * 2:(i + 1) * 2]) for i in range(3)])
     deck.hashtags = ["#a"]
     deck.character = _character()

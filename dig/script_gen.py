@@ -2,6 +2,9 @@
 
 产物是一份 script.json，可以人工改完再渲染（dig render），
 这是实际运营里最重要的一步 —— 文案质量决定完播率。
+
+内容方向：看完要让人觉得"学到了"。每一格是一条能照着做的做法，
+用祈使句直接说，不卖关子；选题优先取材自 prompts/topic_ideation_zh.md 的取材库。
 """
 from __future__ import annotations
 
@@ -21,24 +24,39 @@ SYSTEM = """你是抖音图文赛道的头部编导，专做「双格科普漫�
 这种形式长这样：
 - 一条作品 5~7 张图，全部围绕**同一个主题**；
 - 每张图上下两格画面，每格配**一句短标题**（贴在画面顶部的横幅里）；
-- 所有短标题连起来，是一份有顺序、有节奏的清单：要么是词条释义，要么是对比，
-  要么是步骤，要么是层层递进的反常识。观众是一格一格刷过去的。
+- 所有短标题连起来是一份能照着做的清单。观众一格一格刷过去，刷完就学会了一套做法。
+
+这套图只有一个目标：观众看完觉得"学到了，下次就这么做"。
+所以每一格都是一条具体的做法 —— 不是感想，不是悬念，不是鸡汤。
 
 写短标题的铁律：
 1. 每句 5~14 个字，不能更长。超过 14 字观众直接划走。
-2. 句式在整套里保持工整（都是"X是Y"，或都是"…的人"，或都是四字短语）。
-3. 说人话。不用书面语、不用"首先其次"、不写序号。
-4. 第一格必须是钩子：反常识、戳痛点、或抛一个"我以为…其实…"。
-5. 最后一格要收口：给一句能被截图转发的总结，或一句轻推动的行动建议。
-6. 全套不重复、不同义反复，每一格都要给到新信息。
-7. 同一张图上的两格要有配对感：要么是正反对照（A面/B面），要么是紧挨着的
-   两个同类词条，要么是上下句对仗。不要把两个毫不相干的点塞进同一张。
+2. 用祈使句，直接告诉观众做什么：先…再… / 别…，要… / 遇到…就… / 把…换成…。
+   动词打头，不用"其实""原来""我觉得"开头，不写序号。
+3. 具体到能照做：写出动作、对象或判断标准。"要有耐心"不合格，"等一晚再回复"合格。
+4. 不卖关子：不写问句，不写"第N个绝了""看到最后"，结论就写在这一格里。
+5. 句式在整套里保持工整（都是"先X"，或都是"别X，要Y"，或都是"X期：做Y"）。
+6. 第一格放最有用、最出人意料的那一条，它就是钩子；最后一格用一句话收住整套的道理，
+   值得截图保存。
+7. 全套不重复、不同义反复，每一格都给一条新做法。
+8. 同一张图上的两格要配对：一格"要这样"、一格"别那样"，或者前后两步，
+   或者同一场景的两种应对。不要把两个毫不相干的点塞进同一张。
+9. 说人话。用古语或书里的概念时，后面紧跟大白话的做法，例如"潜龙期：闷头练本事"。
+
+取材的铁律：
+1. 给了【取材】，就按那本书的原意写：把书里的道理翻成今天生活里的具体动作，
+   不歪曲原意，不编造原文和引语，不虚构出处。
+2. 教人自保、做事、与人相处；不教人算计、欺骗、整人。
+3. 养生只讲作息、饮食、情绪、运动这类日常习惯；不讲治病、偏方、药量，不做诊断。
+4. 钱只讲习惯和原则；不荐股，不承诺收益，不用"一定""稳赚""根治"这类绝对化的话。
 
 写画面描述的铁律：
 1. 一句话说清：谁 + 在哪 + 在干什么 + 什么情绪，要能一眼看懂。
-2. 画面必须能**直观对应**那句短标题，不要抽象隐喻。
+2. 画面直接演出这一格的做法：主角正在一个具体场景里做这件事，优先用观众今天
+   会遇到的场景；"别X"的格子就画主角停手、忍住、拒绝的那一刻。不要抽象隐喻。
 3. 同一套图里场景要有变化（室内/室外/远景/近景交替），但世界观统一。
-4. 不要在画面里写字 —— 文字由排版系统贴上去。所以不要描述"牌子上写着…"。
+4. 不要在画面里写字 —— 文字由排版系统贴上去。不要描述"牌子上写着…"，
+   也不要写书名号《》：模型会把书名画成乱码。
 5. 不要描述画格、边框、分镜线、水印。
 
 输出严格的 JSON，不要任何解释、不要 markdown 代码块。"""
@@ -51,18 +69,18 @@ USER_TMPL = """请为下面这个主题写一整套图文。
 输出 JSON，结构如下：
 
 {{
-  "title": "作品标题，10-18字，带钩子",
-  "hook": "发布文案的第一句，一句话，要让人想点开",
-  "caption": "抖音发布文案正文，2-4行，口语，结尾带一句互动引导",
+  "title": "作品标题，10-18字，直接说看完能学会什么",
+  "hook": "发布文案的第一句：一句话说清这套图教的是哪套做法",
+  "caption": "抖音发布文案正文，2-4行，口语：有取材就点明出处，再复述最关键的一条做法，结尾提醒收藏、下次照着做",
   "hashtags": ["#话题1", "#话题2", "#话题3", "#话题4"],
   "pages": [
     {{
       "index": 1,
       "beats": [
         {{
-          "caption": "贴在画面上的短标题，5-14字",
-          "scene": "这一格画什么，30-60字，谁在哪干什么",
-          "note": "运营备注：这一格想让观众产生什么反应，20字内"
+          "caption": "贴在画面上的短标题，5-14字，一条能照着做的做法",
+          "scene": "这一格画什么，30-60字，主角在哪、正在怎么做",
+          "note": "口播备注：这条做法为什么管用，20字内"
         }}
       ]
     }}
@@ -80,12 +98,17 @@ def _extra_block(
     style_name: str,
     angle: str,
     audience: str,
+    source: str = "",
 ) -> str:
     lines: List[str] = []
     if audience:
         lines.append("【目标观众】" + audience)
     if angle:
         lines.append("【切入角度】" + angle)
+    if source:
+        lines.append(
+            "【取材】%s（按这个出处的原意写，把道理翻成今天能照着做的动作）" % source
+        )
     if style_name:
         lines.append("【画风】" + style_name + "（写画面时请顺着这个调性想场景）")
     if character:
@@ -109,6 +132,7 @@ def build_prompt(
     style_name: str = "",
     angle: str = "",
     audience: str = "",
+    source: str = "",
 ) -> str:
     meta = json.dumps(
         {
@@ -125,7 +149,7 @@ def build_prompt(
         pages=pages,
         panels=panels,
         total=pages * panels,
-        extra=_extra_block(character, style_name, angle, audience),
+        extra=_extra_block(character, style_name, angle, audience, source),
         meta=meta,
     )
 
@@ -171,6 +195,9 @@ def clean_caption(text: str, max_len: int = 14) -> str:
 def clean_scene(text: str) -> str:
     s = re.sub(r"\s+", " ", str(text or "")).strip()
     s = _SERIAL_RE.sub("", s)
+    # 取材自书的选题，模型爱写"主角翻开《易经》"，画出来就是一本乱码封面。
+    # 换成一个"书"字，句子照样通顺，出处留在 source 和发布文案里。
+    s = re.sub(r"《[^》]{0,30}》", "书", s)
     # 模型爱写"画面中写着…"，这里直接删掉，文字由排版负责
     s = re.sub(r"[，,]?\s*(?:画面|图片|牌子|招牌|字幕)[^，。,\.]{0,12}(?:写着|文字)[^，。,\.]*", "", s)
     return s.strip(" ，。")
@@ -259,17 +286,19 @@ def generate_script(
     style_name: str = "",
     angle: str = "",
     audience: str = "",
+    source: str = "",
     attempts: int = 2,
 ) -> Deck:
     pages = int(max(PAGES_MIN, min(PAGES_MAX, pages)))
     panels = int(max(1, min(PANELS_MAX, panels)))
-    prompt = build_prompt(theme, pages, panels, character, style_name, angle, audience)
+    prompt = build_prompt(theme, pages, panels, character, style_name, angle, audience, source)
 
     last_err: Optional[Exception] = None
     for i in range(max(1, attempts)):
         try:
             raw = engine.complete(SYSTEM, prompt, json_mode=True)
             deck = parse_script(raw, theme, pages, panels)
+            deck.source = source
             deck.meta["script_model"] = getattr(engine, "name", "?")
             return deck
         except Exception as exc:  # noqa: BLE001

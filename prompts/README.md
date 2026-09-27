@@ -4,7 +4,7 @@
 
 | File | Purpose | Used by |
 |---|---|---|
-| `topic_ideation_zh.md` | **Topic ideation** — paste into ChatGPT | You, manually; produces `topics.json` |
+| `topic_ideation_zh.md` | **Topic ideation + book source library**: paste into ChatGPT; agents also pick ideas from it | You, manually; produces `topics.json` |
 | — | Shot-script system prompt | In code: `SYSTEM` in [`dig/script_gen.py`](../dig/script_gen.py) |
 | — | Style-derivation prompt | In code: `STYLE_SYSTEM` in [`dig/style.py`](../dig/style.py) |
 | — | Character-sheet prompt | In code: `CHAR_SYSTEM` in [`dig/character.py`](../dig/character.py) |
@@ -21,21 +21,41 @@ It has to produce Chinese topics, Chinese hook lines and Chinese captions for a 
 platform. Writing the instructions in English would add a translation hop that costs output
 quality for no benefit. Here is what it does, in English:
 
-It tells the model to act as a Douyin content strategist for this specific format, then:
+It tells the model to act as a Douyin content strategist for this specific format, for an
+account whose one promise is **"watch it, then do it"**. Then it:
 
-1. **Explains the format's mechanics** — 5–7 images, two panels each, 5–14 characters per
-   caption, so one post is 10–14 information points that viewers swipe through.
+1. **Explains the format's mechanics**: 5–7 images, two panels each, 5–14 characters per
+   caption. One post is therefore 10–14 instructions that viewers swipe through.
 2. **States five hard criteria** a topic must pass. The decisive one: the topic must split
-   into **10–14 parallel, drawable points**. Abstract advice ("be patient") fails; concrete
-   scenes ("queued three hours for one photo") pass.
-3. **Supplies six proven topic templates** — glossary, contrast, checklist, process,
-   counter-intuitive, identity — and requires at least four to be represented.
-4. **Takes your account context** — niche, target audience, protagonist, art style, and
+   into **10–14 parallel instructions a viewer can act on today**, each drawable as the
+   protagonist doing it. Abstract advice ("be patient") fails; a concrete action ("wait a
+   night before replying") passes.
+3. **Supplies six structures that teach**: rules, stages, steps, don't/do pairs, "when X, do
+   Y", and an old saying followed by today's action. At least four must be represented.
+4. **Carries a source library** of the reference books: Munger's *Poor Charlie's Almanack*,
+   Schopenhauer's *The Wisdom of Life*, Okada Takehiko's biography of Wang Yangming, 曾仕强's
+   lectures on the 易经, Wu Jun's 见识, a book of 66 rules for dealing with people, a six-volume
+   set of historical strategy stories, 曲黎敏 on the 黄帝内经, and two proverb and aphorism
+   collections. For each it lists only the ideas that turn directly into actions,
+   paraphrased rather than quoted, with the structures they suit and an example topic.
+   At least 9 of the 12 topics must come from it, drawing on at least 5 books.
+5. **Sets content boundaries**: teach self-protection, not scheming (the 66-rules book needs
+   that filter); health means daily habits, never diagnosis or remedies; money means habits,
+   never stock picks; no absolute claims; the 易经 is about how to act, not fortune-telling;
+   no invented quotes.
+6. **Takes your account context**: niche, target audience, protagonist, art style, and
    topics you have already covered.
-5. **Forces self-validation**: for every topic the model must write out the first four
-   captions, proving the topic actually decomposes. If it cannot, it must pick a different one.
-6. **Returns strict JSON** that feeds directly into `dig batch --file topics.json`.
+7. **Forces self-validation**: for every topic the model must write out the first four
+   captions, in the imperative, proving the topic actually decomposes. If it cannot, it must
+   pick a different one.
+8. **Returns strict JSON** that feeds directly into `dig batch --file topics.json`. Each
+   topic's `source` field travels into the shot-script prompt, so the script stays faithful to
+   the book, and is printed in `caption.txt`.
 
 Follow-up instructions at the bottom of the file let you re-score and replace weak topics,
-expand one topic into a full 12-caption script, generate variants for a running series, or
-reverse-engineer the template behind a competitor's post.
+expand one topic into a full 12-caption script, build a running series from one book, or
+reverse-engineer the structure behind a competitor's post.
+
+Agents writing scripts by hand ([AGENTS.md](../AGENTS.md)) use the same library: pick one
+idea, put it in the script's `source`, and turn it into instructions. The books themselves
+are not in this repository; the library is a paraphrased digest.

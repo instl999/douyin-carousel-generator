@@ -86,7 +86,9 @@ class Deck:
     # 内联主角：不需要照片、不需要注册，直接在 script.json 里描述。
     # 吉祥物型账号（参考样例里的老鼠 / 章鱼哥）走这条路。
     character: Optional["Character"] = None
-    handle: str = ""                       # 抖音号，用于页脚水印
+    # 取材出处：书名 + 具体观点，如「《穷查理宝典》· 逆向思维」。
+    # 写脚本时用来对齐原意，并写进 caption.txt 备查；绝不画进画面。
+    source: str = ""
     meta: Dict[str, Any] = field(default_factory=dict)
 
     # ---- 便捷属性 ---------------------------------------------------- #
@@ -103,7 +105,7 @@ class Deck:
             "hashtags": list(self.hashtags),
             "style_id": self.style_id,
             "character_id": self.character_id,
-            "handle": self.handle,
+            "source": self.source,
             "meta": self.meta,
             "pages": [p.to_dict() for p in self.pages],
         }
@@ -113,6 +115,7 @@ class Deck:
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "Deck":
+        # 老脚本里可能还带着 handle（抖音号水印已经去掉了），不认识的键一律忽略
         inline = d.get("character")
         return Deck(
             theme=str(d.get("theme", "")),
@@ -123,7 +126,7 @@ class Deck:
             style_id=str(d.get("style_id", "retro_comic")),
             character_id=d.get("character_id"),
             character=Character.from_dict(inline) if isinstance(inline, dict) else None,
-            handle=str(d.get("handle", "")),
+            source=str(d.get("source") or "").strip(),
             meta=dict(d.get("meta", {})),
             pages=[Page.from_dict(p) for p in d.get("pages", [])],
         )
@@ -174,7 +177,6 @@ class StylePreset:
     page: Dict[str, Any] = field(default_factory=dict)      # 画布 / 纸张
     panel: Dict[str, Any] = field(default_factory=dict)     # 画格边框
     banner: Dict[str, Any] = field(default_factory=dict)    # 文案横幅
-    watermark: Dict[str, Any] = field(default_factory=dict) # 页脚抖音号
     texture: Dict[str, Any] = field(default_factory=dict)   # 颗粒 / 半调网点
     source_image: Optional[str] = None     # 若由参考图生成，记录来源
 
@@ -183,5 +185,6 @@ class StylePreset:
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "StylePreset":
+        # 只收认识的字段：自己存的旧预设里还带着 watermark 块，这里会被静默丢掉
         known = {f.name for f in dataclasses.fields(StylePreset)}
         return StylePreset(**{k: v for k, v in (d or {}).items() if k in known})

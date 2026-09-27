@@ -26,9 +26,8 @@ except Exception:  # pragma: no cover
 DEFAULT_LAYOUT: Dict = {
     "page": {
         "background": "#EDE3CC",      # 纸张底色
-        "margin": 46,                 # 画布四周留白
+        "margin": 46,                 # 画布四周留白（四边一样宽）
         "gap": 26,                    # 两格之间的间距
-        "footer": 128,                # 页脚高度（放抖音号）
         "corner": 10,
     },
     "panel": {
@@ -53,15 +52,6 @@ DEFAULT_LAYOUT: Dict = {
         "min_font_size": 30,
         "align": "center",            # center / left
         "shadow": True,
-    },
-    "watermark": {
-        "enabled": True,
-        "text": "抖音号：{handle}",
-        "color": "#FFFFFF",
-        "outline": "#00000055",
-        "font_size": 46,
-        "icon": True,                 # 画一个简笔音符
-        "position": "footer",         # footer / panel_bottom
     },
     "texture": {
         "grain": 0.05,                # 纸张颗粒强度 0~1
@@ -134,7 +124,6 @@ def load_style(cfg: Config, style_id: str) -> StylePreset:
     preset.page = _merge(DEFAULT_LAYOUT["page"], data.get("page") or {})
     preset.panel = _merge(DEFAULT_LAYOUT["panel"], data.get("panel") or {})
     preset.banner = _merge(DEFAULT_LAYOUT["banner"], data.get("banner") or {})
-    preset.watermark = _merge(DEFAULT_LAYOUT["watermark"], data.get("watermark") or {})
     preset.texture = _merge(DEFAULT_LAYOUT["texture"], data.get("texture") or {})
     if not preset.prompt:
         preset.prompt = (

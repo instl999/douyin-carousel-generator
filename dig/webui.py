@@ -157,11 +157,11 @@ PAGE = """<!doctype html>
       <div><label>主角</label><select id="character"></select></div>
       <div><label>张数</label><input id="pages" type="number" value="6" min="3" max="10"></div>
       <div><label>每张格数</label><input id="panels" type="number" value="2" min="1" max="3"></div>
-      <div><label>抖音号</label><input id="handle" placeholder="your_douyin_id"></div>
     </div>
     <div class="row">
       <div><label>目标观众（可选）</label><input id="audience" placeholder="刚毕业的年轻人"></div>
       <div><label>切入角度（可选）</label><input id="angle" placeholder="从新手视角"></div>
+      <div><label>取材（可选）</label><input id="source" placeholder="《穷查理宝典》· 逆向思维"></div>
     </div>
     <div class="check"><input type="checkbox" id="offline">
       <span>离线试跑（mock 引擎，不联网不花钱，只验证排版）</span></div>
@@ -192,7 +192,6 @@ async function refresh() {
     + x.name + " (" + x.id + ")</option>").join("");
   $("character").innerHTML = '<option value="">（不用主角）</option>' +
     s.characters.map(x => '<option value="' + x.id + '">' + x.name + "</option>").join("");
-  if (s.handle && !$("handle").value) $("handle").value = s.handle;
 }
 $("btnChar").onclick = async () => {
   const name = $("cname").value.trim();
@@ -238,8 +237,8 @@ $("btnRun").onclick = async () => {
       body: JSON.stringify({
         theme, style: $("style").value, style_prompt: $("styleprompt").value.trim(),
         character: $("character").value, pages: +$("pages").value, panels: +$("panels").value,
-        handle: $("handle").value.trim(), audience: $("audience").value.trim(),
-        angle: $("angle").value.trim(), offline: $("offline").checked,
+        audience: $("audience").value.trim(), angle: $("angle").value.trim(),
+        source: $("source").value.trim(), offline: $("offline").checked,
       }),
     });
     const d = await r.json();
@@ -363,7 +362,6 @@ class Handler(BaseHTTPRequestHandler):
             "styles": styles,
             "characters": chars,
             "current_style": str(cfg.get("style", "")),
-            "handle": str(cfg.get("handle", "") or ""),
         }
 
     def _generate(self, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -379,9 +377,9 @@ class Handler(BaseHTTPRequestHandler):
             character_id=str(body.get("character") or ""),
             pages=int(body.get("pages") or 0) or None,
             panels=int(body.get("panels") or 0) or None,
-            handle=str(body.get("handle") or ""),
             angle=str(body.get("angle") or ""),
             audience=str(body.get("audience") or ""),
+            source=str(body.get("source") or ""),
         )
         caption_text = ""
         try:

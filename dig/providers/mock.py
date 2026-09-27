@@ -39,21 +39,22 @@ def parse_meta(user_prompt: str) -> Dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # 文本
 # --------------------------------------------------------------------------- #
+# 占位文案也按内容方向写成祈使句：离线试跑时看到的，就该是真正要发的样子
 _CAPTION_PATTERNS = [
-    "%s的第%d个真相",
-    "别人只看%s表面",
-    "%s里最容易翻车的一步",
-    "老手都在偷偷做的%s",
-    "%s其实分两种",
-    "先搞懂%s再谈别的",
-    "%s踩坑清单第%d条",
-    "这一步决定了%s成败",
-    "%s没人明说的规矩",
-    "把%s拆开看就懂了",
-    "%s最贵的不是钱",
-    "%s新手最常问的一句",
-    "换个角度看%s",
-    "%s收尾才是关键",
+    "先弄懂%s",
+    "别急着碰%s",
+    "做%s前先想三秒",
+    "遇到%s先停一下",
+    "把%s拆成小步",
+    "每天练一次%s",
+    "%s先做最难的",
+    "别一个人扛%s",
+    "%s做完当场检查",
+    "把%s写成清单",
+    "%s先问内行",
+    "别为%s熬夜",
+    "%s留一条退路",
+    "%s见好就收",
 ]
 
 _SCENE_PATTERNS = [
@@ -101,8 +102,7 @@ class MockChat(TextEngine):
         beats: List[Dict[str, str]] = []
         total = pages * panels
         for i in range(total):
-            pat = _CAPTION_PATTERNS[i % len(_CAPTION_PATTERNS)]
-            caption = pat % ((short, i + 1) if pat.count("%") == 2 else (short,))
+            caption = _CAPTION_PATTERNS[i % len(_CAPTION_PATTERNS)] % short
             scene = _SCENE_PATTERNS[i % len(_SCENE_PATTERNS)].format(
                 place=rng.choice(_PLACES), prop=rng.choice(_PROPS)
             )
@@ -115,9 +115,9 @@ class MockChat(TextEngine):
             )
 
         return {
-            "title": "%s：一次说清" % short,
-            "hook": "关于%s，90%% 的人第一步就错了。" % short,
-            "caption": "关于%s，我整理了 %d 张图。\n看完你就知道该从哪一步开始。\n（离线占位文案）" % (short, pages),
+            "title": "%s：照着做就行" % short,
+            "hook": "关于%s，这 %d 张图里是能直接照着做的 %d 条做法。" % (short, pages, total),
+            "caption": "关于%s，我整理了 %d 条能直接照着做的做法。\n收藏起来，用的时候照着做。\n（离线占位文案）" % (short, total),
             "hashtags": ["#" + short, "#干货分享", "#涨知识", "#图文伙伴计划"],
             "pages": [
                 {

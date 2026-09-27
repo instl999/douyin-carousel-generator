@@ -62,7 +62,6 @@ jobs:
           python -m dig run \
             --theme "楼盘名字里的暗号" \
             --style retro_comic \
-            --handle your_douyin_id \
             --pages 6 --panels 2 \
             --seed 20250918 \
             --offline \
