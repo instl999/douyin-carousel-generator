@@ -12,9 +12,11 @@ You can also register **your own photo as the recurring protagonist**, which is 
 this usable for personal-IP account operation.
 
 The content goal is that **a viewer finishes the set knowing what to do**. Every panel
-caption is one concrete instruction in the imperative, with no teasers. Topics are framed
-from a curated library of books: Munger, Schopenhauer, Wang Yangming, 曾仕强's 易经,
-Wu Jun and others. See [prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md).
+caption is plain counsel that works on its own: someone who sees only that one image
+understands it at a glance and learns something to do. Topics are framed from a curated
+library of books: Munger, Schopenhauer, Wang Yangming, 曾仕强's 易经, Wu Jun and others.
+The books' own terms go in the title and post copy, never on the images. See
+[prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md).
 
 The layout constants and content rules were reverse-engineered from 72 real posts across
 four accounts — see [docs/format-analysis.md](docs/format-analysis.md).
@@ -181,7 +183,8 @@ and continue. `--strict` promotes warnings to errors; `--no-validate` skips the 
 you should not need.
 
 What it catches: captions over length, serial-numbered captions, duplicates, unbalanced
-quotes, captions that tease or ask instead of instructing, empty or too-thin scenes, scenes
+quotes, captions that tease or ask instead of advising, captions that open with a label like
+`潜龙期：` that only the rest of the set explains, empty or too-thin scenes, scenes
 asking for text the renderer forbids (including 《book titles》), uneven panel counts, page
 counts outside the workable range, and a missing character block.
 
@@ -238,7 +241,8 @@ topics it returns must come from that library. A topic's `source` travels throug
 `caption.txt`.
 
 It is also strict about the one constraint that decides whether a topic works in this
-format: **it must split into 10–14 parallel instructions a viewer can act on today.** The
+format: **it must split into 10–14 parallel pieces of advice a viewer can act on today, each
+understandable from its own image.** The
 model has to write out the first four captions as proof before a topic is accepted. The
 prompt itself is in Chinese because its output must be Chinese;
 [prompts/README.md](prompts/README.md) explains what it does in English.
@@ -279,7 +283,7 @@ Read AGENTS.md and README.md, install the dependencies, run dig doctor, and comp
 **Draft and validate a carousel before generating art**
 
 ```text
-Pick Munger's inversion idea from the source library in prompts/topic_ideation_zh.md and write a 6-page, two-panel-per-page script where every caption is one instruction a viewer can act on today. Use examples/script.minimal.json and the schema, fill in source, define one consistent mascot, and run dig validate. Show me all captions, the panel count, and the number of billed image calls; do not render yet.
+Pick Munger's inversion idea from the source library in prompts/topic_ideation_zh.md and write a 6-page, two-panel-per-page script where every caption is plain counsel a stranger would understand from that one image alone. Use examples/script.minimal.json and the schema, fill in source, define one consistent mascot, and run dig validate. Show me all captions, the panel count, and the number of billed image calls; do not render yet.
 ```
 
 **Generate the final carousel**

@@ -80,7 +80,7 @@
                   "type": "string",
                   "minLength": 3,
                   "maxLength": 18,
-                  "description": "The banner line drawn onto the panel. 5-14 Chinese characters. One instruction the viewer can act on, in the imperative (先… / 别… / 遇到…就…). No questions, no teasers, no serial numbers. Must be unique across the set, and parallel in structure with the others."
+                  "description": "The banner line drawn onto the panel. 5-14 Chinese characters, usually 9-13. Plain counsel that works on its own: the situation plus what to do, in everyday words, e.g. 刚入行，先把基本功练扎实. Someone who sees only this image must understand it, so no book terms, metaphors or label prefixes like 潜龙期：. No questions, no teasers, no serial numbers. Must be unique across the set, and the same shape as the others."
                 },
                 "scene": {
                   "type": "string",
@@ -89,7 +89,7 @@
                 },
                 "note": {
                   "type": "string",
-                  "description": "Voice-over note: why this instruction works. Not rendered."
+                  "description": "Voice-over note: why this advice works. This is where the book's own term goes (潜龙勿用：…). Not rendered."
                 }
               }
             }

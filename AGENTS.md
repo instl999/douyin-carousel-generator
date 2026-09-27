@@ -40,7 +40,7 @@ output that cannot be posted.
 |---|---|
 | **Two beats per page**, always | The reference format is two panels per image. A single beat per page makes the panel portrait-shaped, halves the information density, and the model tends to paint a dead area under the banner |
 | Captions are **5–14 Chinese characters** | Longer and the layout shrinks the font, so sizes differ between panels in one set |
-| **Every caption is an instruction** the viewer can carry out | The account's promise is "watch it, then do it". A question or a teaser panel teaches nothing. `dig validate` warns on question marks, trailing ellipses and teaser words (`caption-teaser`) |
+| **Every caption stands alone** as plain counsel | Many viewers see one image by itself: the cover, a single swipe, a forwarded screenshot. A caption that needs the rest of the set, a book's term or a metaphor teaches them nothing. `dig validate` warns on teasers and questions (`caption-teaser`) and on label prefixes such as `潜龙期：` (`caption-label`) |
 | **No serial numbers** in captions (`1.`, `第3格：`) | Viewers read content, not indices |
 | **Every caption unique** | This format dies on repetition — one repeated beat loses a chunk of the audience |
 | **Same beat count on every page** | Mixed 1/2-panel pages make the set look broken |
@@ -92,10 +92,11 @@ lists only ideas that turn directly into actions. Then:
 1. Pick **one specific idea** from one book, e.g. Munger's inversion or the six dragons of 乾.
 2. Put it in the script's `source` field: `"《穷查理宝典》· 反过来想"`. It is printed in
    `caption.txt` for the operator and never drawn.
-3. Choose a structure: rules, stages, steps, don't/do pairs, "when X, do Y", or old saying
-   plus today's action. The library says which structures suit each book.
-4. Translate the idea into **today's situations**: work, people, money, sleep, study,
-   decisions. Stay faithful to the book. Never invent quotes or chapters.
+3. Choose a structure: rules, stages, steps, don't/do pairs, "when X, do Y", or the plain
+   advice behind old sayings. The library says which structures suit each book.
+4. Translate the idea into **today's situations and everyday words**: work, people, money,
+   sleep, study, decisions. Stay faithful to the book. Never invent quotes or chapters.
+   The book's own terms go in the title, the post copy and `note`, never on the images.
 
 Boundaries. Break one and the topic is out:
 
@@ -108,29 +109,41 @@ Boundaries. Break one and the topic is out:
 
 ## Writing good captions
 
-Each caption is **one instruction, in the imperative, concrete enough to act on today**:
+Many viewers see one image by itself: the cover, a single swipe, a screenshot a friend
+forwarded. **Every caption must stand alone.** Someone who sees only that one image, with
+no idea what the set is about, should understand it at a glance and learn something to do.
 
-- Start with the action: `先…` / `别…` / `…前先…` / `遇到…就…` / `把…换成…`.
-- Name the act, the object or the test. `要有耐心` fails. `等一晚再回消息` works.
-- State the answer on the panel. No questions, no `第4个绝了`, no `看到最后`. Suspense
-  belongs in the post copy, if anywhere.
-- When you use a classical term or a book's concept, follow it straight away with the plain
-  action: `潜龙期：闷头练本事`, `量体裁衣：先算再花`.
+So write each caption as **plain, straightforward counsel**, the way someone who has been
+through it would tell you: *the situation* + *what to do or not do*.
 
-The set must read as one list, not twelve unrelated lines. Keep the sentence pattern
-identical throughout: all `先X`, or all `别X`, or all `阶段：做Y`. That parallelism is
-what makes people swipe to the end.
+- `刚入行，先把基本功练扎实` · `借钱给朋友，只借丢得起的数` · `本事不够时，别急着出风头`
+- Everyday words only. No book concepts, classical phrases, jargon or metaphors on the
+  image, and no label prefixes like `潜龙期：` or `老话：`. The frame (乾卦六龙, the book,
+  the proverb) goes in the title, the post copy and `note`. A saying that is already
+  everyday counsel, like `有借有还，再借不难`, can go on the image as it is.
+- Concrete, not a platitude. Name the situation and the action. `做人要低调` is true and
+  teaches nothing.
+- State the answer on the panel. No questions, no `第4个绝了`, no `看到最后`.
+- Aim for 9–13 characters: room for the situation and the advice without shrinking the font.
+
+| Instead of | Write |
+|---|---|
+| `潜龙期：闷头练本事` (label only the set explains) | `刚入行，先把基本功练扎实` |
+| `跃龙期：先小步试跳` (label and metaphor) | `想转行，先用业余时间试试` |
+| `量体裁衣：先算再花` (proverb as label) | `花钱之前，先算算自己挣多少` |
+| `心态决定一切` (no action) | `被批评时，先听完再解释` |
+| `你为什么总存不下钱？` (question) | `发工资当天，先存下一成` |
+
+The set must still read as one list. Give every caption the same shape, situation then
+advice, at roughly the same length. That parallelism is what makes people swipe to the end.
 
 The two panels on one image are a pair: one "do this" and one "don't do that", or two
 consecutive steps, or two responses to the same situation.
 
-First beat is the hook: the most useful or least obvious instruction, stated plainly. Last
-beat is the payoff, the one line that sums up the set and is worth screenshotting. The `note`
-on each beat says why the instruction works; it feeds the voice-over and is never drawn.
-
-Good (from `examples/script.minimal.json`): `潜龙期：闷头练本事` / `潜龙期：别急着出头`.
-
-Thin: `心态决定一切` (no action), `第3个我笑了` (teaser), `你为什么总存不下钱？` (question).
+First beat is the hook: the most useful or least obvious advice. Last beat is the payoff,
+the one line that sums up the set and is worth screenshotting. The `note` on each beat says
+why the advice works and carries the book's own term (`潜龙勿用：本事不够时，先蓄力`); it
+feeds the voice-over and is never drawn.
 
 ## Writing good scenes
 
@@ -191,8 +204,9 @@ Full detail: [docs/provider-notes.md](docs/provider-notes.md).
 2. Confirm the protagonist is the same person in every panel.
 3. Confirm no garbled text appeared inside the art.
 4. Check `manifest.json` → `errors` is empty.
-5. Read the captions in order. Each one must be an instruction a viewer could act on today.
-   If the idea comes from a book, `source` and the post copy both name it.
+5. Read each caption on its own, as a stranger would. It must make sense without the others
+   and tell them something they can do today. If the idea comes from a book, `source` and
+   the post copy both name it.
 
 `caption.txt` in the output directory carries this checklist plus the ready-to-paste post
 copy.
