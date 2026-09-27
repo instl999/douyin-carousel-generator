@@ -123,9 +123,9 @@ def run(
     character_id: str = "",
     pages: Optional[int] = None,
     panels: Optional[int] = None,
-    handle: str = "",
     angle: str = "",
     audience: str = "",
+    source: str = "",
     out_dir: str = "",
     script_only: bool = False,
     render_only: bool = False,
@@ -182,6 +182,7 @@ def run(
             style_name=style.name,
             angle=angle,
             audience=audience,
+            source=source,
         )
         progress("script", "脚本完成：" + (deck.title or theme))
 
@@ -192,8 +193,8 @@ def run(
 
     deck.style_id = style.id
     deck.character_id = character.id if (character and character.id) else None
-    # handle 的优先级：命令行 > 脚本自带 > 配置文件。脚本里写了就不能被空值冲掉。
-    deck.handle = handle or deck.handle or str(cfg.get("handle", "") or "")
+    # 取材：命令行给了就用命令行的，否则保留脚本自己写的，不能被空值冲掉
+    deck.source = source or deck.source
     if not deck.theme:
         deck.theme = theme
 
@@ -256,7 +257,7 @@ def run_batch(
 ) -> List[Dict[str, Any]]:
     """批量跑多个选题。topics 可以是字符串列表，也可以是 dict 列表。
 
-    dict 支持的键：theme / angle / audience / style / character / pages / handle
+    dict 支持的键：theme / angle / audience / source / style / character / pages
     """
     results = []
     for i, item in enumerate(topics, 1):
@@ -273,8 +274,8 @@ def run_batch(
             ("character", "character_id"),
             ("angle", "angle"),
             ("audience", "audience"),
+            ("source", "source"),
             ("pages", "pages"),
-            ("handle", "handle"),
         ):
             if item.get(key_in) is not None:
                 opts[key_out] = item[key_in]

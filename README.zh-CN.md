@@ -5,6 +5,10 @@
 一个主题 → 5~7 张「双格科普漫画」→ 直接发布。
 画风提前设定，全套统一；可以把**你自己的照片**设成固定主角，做个人 IP 连更。
 
+内容方向只有一条：**看完就能照着做**。每一格是一条具体的做法，用祈使句直说，不卖关子；
+选题取材自一份书单（芒格、叔本华、王阳明、曾仕强讲易经、吴军等），
+见 [prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md) 的取材库。
+
 版式和内容规则来自对 72 张真实样例的拆解，见 [docs/format-analysis.zh-CN.md](docs/format-analysis.zh-CN.md)。
 
 ```
@@ -32,13 +36,13 @@ python -m dig run --theme "楼盘名字里的暗号" --offline   # 不花钱先�
 ```bash
 cp config.example.yaml config.yaml     # 填模型名
 cp .env.example .env                   # 填 API Key
-python -m dig run --theme "楼盘名字里的暗号" --style retro_comic --handle your_douyin_id
+python -m dig run --theme "楼盘名字里的暗号" --style retro_comic
 ```
 
 Windows 也可以直接：
 
 ```powershell
-.\run.ps1 "楼盘名字里的暗号" -Handle your_douyin_id
+.\run.ps1 "楼盘名字里的暗号"
 ```
 
 产物在 `output/时间戳_主题/`：
@@ -47,8 +51,8 @@ Windows 也可以直接：
 pages/01.jpg … 06.jpg   ← 直接发布的成图
 panels/                 ← 每格的原始底图（想单独换某一格时用）
 script.json             ← 分镜脚本，可以改完重出图
-caption.txt             ← 标题、发布文案、话题、逐格文案、发布前自检清单
-manifest.json           ← 这次用了什么模型/画风/种子，哪几格失败了
+caption.txt             ← 标题、发布文案、话题、取材出处、逐格文案、发布前自检清单
+manifest.json           ← 这次用了什么模型/画风/种子/取材，哪几格失败了
 ```
 
 ---
@@ -80,7 +84,7 @@ python -m dig run --theme "..." --style hk_retro
 
 ```bash
 python -m dig character add --name 小圆 --photo me.jpg --stylize
-python -m dig run --theme "第一次租房避坑" --character 小圆 --handle your_douyin_id
+python -m dig run --theme "第一次租房避坑" --character 小圆
 ```
 
 角色一致性靠**四层锁定**，缺一层都容易崩人设：
@@ -150,8 +154,8 @@ python -m dig validate --script my-script.json
 `run` 和 `render` 会跑同样的检查，**有错误直接拦住不开工**，警告只提示不挡路。
 `--strict` 把警告也当错误；`--no-validate` 全部跳过，正常情况下用不到。
 
-查的东西：标题超长、带序号、重复、引号不成对、场景空/太薄、场景要求画文字、
-每页格数不齐、页数超范围、没设定主角。
+查的东西：标题超长、带序号、重复、引号不成对、标题卖关子或只提问不给做法、
+场景空/太薄、场景要求画文字（包括写《书名》）、每页格数不齐、页数超范围、没设定主角。
 
 其它默认就开着的保险：
 
@@ -174,18 +178,24 @@ python -m dig validate --script my-script.json
 3. 批量出片：
 
 ```bash
-python -m dig batch --file topics.json --style retro_comic --character 小圆 --handle your_douyin_id
+python -m dig batch --file topics.json --style retro_comic --character 小圆
 ```
 
 选题文件长这样（`examples/topics.sample.json` 有完整示例）：
 
 ```json
-[{ "theme": "楼盘名字里的那些字分别代表什么档次",
-   "angle": "从第一次看售楼部的买房小白视角",
-   "audience": "准备买房的年轻人", "pages": 6 }]
+[{ "theme": "芒格的反向思考：想把日子过好，先避开会让人变惨的那几件事",
+   "source": "《穷查理宝典》· 第一讲 哈佛学校毕业演讲（反过来想）",
+   "angle": "把芒格开的'痛苦药方'反过来，一格一条今天就能照做的规矩",
+   "audience": "25-35岁想少走弯路的上班族", "pages": 6 }]
 ```
 
-那份提示词里写清了这个形式的硬约束——**一个选题必须能拆出 10~14 个能画出来的并列小点**，
+那份提示词里带着一份**取材库**：每本参考书只列能直接变成做法的观点（都是转述），
+写明适合哪种结构，也写明边界（不教算计、不谈治病、不荐股）。12 个选题里至少 9 个要从这里取材。
+每条选题的 `source` 会被 `dig batch` 一路带进写脚本的提示词，脚本按书的原意来写，
+最后也会写进 `caption.txt` 备查。
+
+它还写清了这个形式的硬约束——**一个选题必须能拆出 10~14 条今天就能照做的并列做法**，
 拆不出来的选题做这个形式必翻车。它还会让模型当场写出前 4 格标题来自我验证。
 
 ---
@@ -222,13 +232,13 @@ python -m dig ui        # 默认 http://127.0.0.1:8765
 **先写脚本和体检，不生图**
 
 ```text
-参考 examples/script.minimal.json 和 schema，为“第一次租房最容易踩的 6 个坑”写一套 6 页、每页双格的脚本，口吻实用直白，并设定一个全程一致的吉祥物主角。运行 dig validate，把全部短标题、总格数和预计付费生图调用数给我看；先不要 render。
+从 prompts/topic_ideation_zh.md 的取材库里选芒格的"反过来想"，参考 examples/script.minimal.json 和 schema 写一套 6 页、每页双格的脚本：每格一条今天就能照做的做法，填好 source，并设定一个全程一致的吉祥物主角。运行 dig validate，把全部短标题、总格数和预计付费生图调用数给我看；先不要 render。
 ```
 
 **生成整套图并检查结果**
 
 ```text
-用 retro_comic 画风和抖音号 my_account 渲染已经通过校验的租房脚本。完成后逐张检查成图，确认主角一致、字幕清楚，再检查 manifest.json 是否有错误。复用缓存，只重画失败或内容有变化的格子。
+用 retro_comic 画风渲染已经通过校验的这套脚本。完成后逐张检查成图，确认主角一致、字幕清楚，再检查 manifest.json 是否有错误。复用缓存，只重画失败或内容有变化的格子。
 ```
 
 **把本人照片设成固定主角**
@@ -241,7 +251,7 @@ python -m dig ui        # 默认 http://127.0.0.1:8765
 产物路径固定，适合被 Agent 编排：
 
 ```bash
-python -m dig run --theme "$THEME" --character "$CHAR" --handle "$HANDLE" --out ./out/task123
+python -m dig run --theme "$THEME" --source "$SOURCE" --character "$CHAR" --out ./out/task123
 ```
 
 跑完读 `./out/task123/manifest.json` 就知道结果：
@@ -301,7 +311,7 @@ python -m dig run \
   --theme "第一次租房避坑" \
   --style retro_comic \          # 画风预设
   --character 小圆 \              # 固定主角
-  --handle your_douyin_id \      # 页脚抖音号
+  --source "《穷查理宝典》· 反过来想" \  # 这套图照着哪本书的哪个观点写
   --pages 6 --panels 2 \         # 6 张图，每张 2 格
   --audience "刚毕业的大学生" \
   --angle "从被坑过三次的过来人视角" \
@@ -323,7 +333,7 @@ AI 画中文经常缺笔画、串字，一套 6 张糊一张就得重跑。本�
 而且改文案不用重新烧钱生图。所以每条生图提示词里都硬写了"画面中不要出现任何文字"。
 
 **每格单独生图，而不是一次生成整页。**
-让模型一次画出"两格 + 横幅 + 页脚"，构图不可控、文字必糊。
+让模型一次画出"两格 + 横幅"，构图不可控、文字必糊。
 本工具给每格单独要一张比画格大 1.15 倍的图再居中裁切，构图稳定，
 某一格不满意也可以单独重画。
 
@@ -355,12 +365,12 @@ dig/                 代码
   script_gen.py      分镜脚本生成（内容质量在这里）
   prompt_builder.py  单格提示词拼装
   imagegen.py        并发/重试/缓存/兜底
-  compositor.py      排版合成（横幅、边框、水印、做旧质感）
+  compositor.py      排版合成（横幅、边框、做旧质感）
   character.py       个人 IP 主角
   style.py           画风预设 / 参考图反推
   fonts.py           字体发现 + 中文避头尾排版
   providers/         ark / openai / gemini / mock
 styles/              画风预设 YAML，可自己加
-prompts/             选题提示词（喂给 ChatGPT）
+prompts/             选题提示词（喂给 ChatGPT，含取材库）
 docs/                样例拆解
 ```

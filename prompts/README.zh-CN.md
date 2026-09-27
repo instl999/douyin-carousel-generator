@@ -5,7 +5,7 @@
 
 | 文件 | 用途 | 在哪里被用到 |
 |---|---|---|
-| `topic_ideation_zh.md` | **选题生成**，复制进 ChatGPT 用 | 人工，产出 `topics.json` |
+| `topic_ideation_zh.md` | **选题生成 + 取材库**，复制进 ChatGPT 用；Agent 写脚本时也从这里挑观点 | 人工，产出 `topics.json` |
 | — | 分镜脚本系统提示词 | 代码内置：`dig/script_gen.py` 的 `SYSTEM` |
 | — | 画风反推提示词 | 代码内置：`dig/style.py` 的 `STYLE_SYSTEM` |
 | — | 角色设定卡提示词 | 代码内置：`dig/character.py` 的 `CHAR_SYSTEM` |
@@ -13,3 +13,6 @@
 
 内置的那几条写在代码里是故意的：它们和 JSON 解析、字数清洗逻辑是配套的，
 改提示词而不改解析容易出错。要调就直接改对应的 `.py`，都在文件顶部。
+
+`topic_ideation_zh.md` 里的取材库是参考书的观点摘要（转述，不是原文），书本身不在仓库里。
+每条选题的 `source` 会被 `dig batch` 带进分镜脚本提示词，并写进 `caption.txt` 备查。

@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import re
 from typing import List, Optional
 
 from .models import Beat, Character, Deck, StylePreset
@@ -79,7 +80,9 @@ def panel_prompt(
         lines.append(
             "【本格要传达的意思】%s（用画面表达，不要把这句话写进画面）" % beat.caption
         )
-    lines.append("【主题背景】整套图在讲：" + (deck.theme or deck.title))
+    # 选题常带《书名》，原样给画图模型会诱导它在画面里画出书名，只留名字
+    about = re.sub(r"[《》]", "", deck.theme or deck.title)
+    lines.append("【主题背景】整套图在讲：" + about)
     lines.append(composition(landscape))
     lines.append(NO_FRAME)
     if not allow_in_image_text:

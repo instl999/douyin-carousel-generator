@@ -97,7 +97,7 @@ def test_composition_prompt_no_longer_asks_for_blank_space():
 
 def test_solo_layout_is_warned():
     beats = [Beat(caption="标题%d" % i, scene="主角站在街边看远处的楼，午后阳光，行人经过") for i in range(5)]
-    deck = Deck(theme="t", title="一个够长的标题", handle="h",
+    deck = Deck(theme="t", title="一个够长的标题",
                 pages=[Page(index=i + 1, beats=[beats[i]]) for i in range(5)])
     deck.hashtags = ["#a"]
     codes = {i.code for i in validate_deck(deck)}
@@ -106,7 +106,7 @@ def test_solo_layout_is_warned():
 
 def test_duo_layout_is_not_warned():
     beats = [Beat(caption="标题%d" % i, scene="主角站在街边看远处的楼，午后阳光，行人经过") for i in range(10)]
-    deck = Deck(theme="t", title="一个够长的标题", handle="h",
+    deck = Deck(theme="t", title="一个够长的标题",
                 pages=[Page(index=i + 1, beats=beats[i * 2:(i + 1) * 2]) for i in range(5)])
     deck.hashtags = ["#a"]
     codes = {i.code for i in validate_deck(deck)}

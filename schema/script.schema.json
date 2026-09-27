@@ -13,10 +13,14 @@
     },
     "title": {
       "type": "string",
-      "description": "Post title, 10-18 Chinese characters, with a hook."
+      "description": "Post title, 10-18 Chinese characters. Says what the viewer will be able to do after watching."
     },
-    "hook": { "type": "string", "description": "First line of the post copy." },
-    "caption": { "type": "string", "description": "Post body, 2-4 lines, colloquial." },
+    "hook": { "type": "string", "description": "First line of the post copy: what this set teaches, in one sentence." },
+    "caption": { "type": "string", "description": "Post body, 2-4 lines, colloquial. Names the source if there is one, restates the single most useful instruction, ends by asking viewers to save it." },
+    "source": {
+      "type": "string",
+      "description": "Where the idea comes from: book title plus the specific idea, e.g. 《穷查理宝典》· 逆向思维. Pick from the source library in prompts/topic_ideation_zh.md. Printed in caption.txt for the operator; never drawn into the art."
+    },
     "hashtags": {
       "type": "array",
       "items": { "type": "string" },
@@ -26,10 +30,6 @@
       "type": "string",
       "description": "Preset id from styles/. Wins unless --style is passed on the CLI.",
       "default": "retro_comic"
-    },
-    "handle": {
-      "type": "string",
-      "description": "Douyin ID for the footer watermark. Empty means no watermark."
     },
     "character_id": {
       "type": ["string", "null"],
@@ -80,16 +80,16 @@
                   "type": "string",
                   "minLength": 3,
                   "maxLength": 18,
-                  "description": "The banner line drawn onto the panel. 5-14 Chinese characters. No serial numbers. Must be unique across the set, and parallel in structure with the others."
+                  "description": "The banner line drawn onto the panel. 5-14 Chinese characters. One instruction the viewer can act on, in the imperative (先… / 别… / 遇到…就…). No questions, no teasers, no serial numbers. Must be unique across the set, and parallel in structure with the others."
                 },
                 "scene": {
                   "type": "string",
                   "minLength": 8,
-                  "description": "What to draw: who + where + doing what + mood, 30-60 Chinese characters. Refer to the protagonist as 主角. Never ask for text, signs or lettering in the image."
+                  "description": "What to draw: who + where + doing what + mood, 30-60 Chinese characters. Show the protagonist (主角) carrying out this panel's instruction. Never ask for text, signs, lettering or 《book titles》 in the image."
                 },
                 "note": {
                   "type": "string",
-                  "description": "Operator note. Not rendered."
+                  "description": "Voice-over note: why this instruction works. Not rendered."
                 }
               }
             }

@@ -33,6 +33,9 @@ def write_caption(deck: Deck, out_dir: str) -> str:
         lines.append(" ".join(deck.hashtags))
     lines.append("")
     lines.append("—" * 24)
+    if deck.source:
+        lines.append("【取材】" + deck.source)
+        lines.append("")
     lines.append("【逐格文案】（配音/口播可直接用）")
     n = 0
     for page in deck.pages:
@@ -44,10 +47,10 @@ def write_caption(deck: Deck, out_dir: str) -> str:
     lines.append("")
     lines.append("【发布前自检】")
     lines.append("  □ 第 1 张图能不能在 1 秒内看懂？看不懂就换封面")
+    lines.append("  □ 每一格是不是一条能照着做的做法？刷完能说出学到了哪几条")
     lines.append("  □ 每句标题是否都在 14 字以内、不挡人物脸")
     lines.append("  □ 主角在每张图里是不是同一个人（发型/衣服/配饰）")
     lines.append("  □ 画面里有没有混进乱码文字，有就重跑那一格")
-    lines.append("  □ 抖音号水印是否正确")
     lines.append("  □ 底部约 250px 会被 App 界面遮挡，重要内容别放那里")
 
     path = os.path.join(out_dir, "caption.txt")
@@ -77,7 +80,7 @@ def write_manifest(
             if character
             else None
         ),
-        "handle": deck.handle,
+        "source": deck.source,
         "size": [cfg.get("page.width"), cfg.get("page.height")],
         "providers": {
             "text": cfg.get("providers.text.provider") + ":" + str(cfg.get("providers.text.model")),

@@ -3,7 +3,6 @@
 
 output_dir: output
 style: retro_comic        # 默认画风，见 styles/ 目录
-handle: ""                # 你的抖音号，会渲染到每张图的页脚
 
 page:
   width: 1792             # 参考样例原图尺寸（3:4）。生图本来就要画 370 万像素，

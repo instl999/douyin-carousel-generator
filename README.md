@@ -11,6 +11,11 @@ describe one in a sentence, or hand it a reference image and let a vision model 
 You can also register **your own photo as the recurring protagonist**, which is what makes
 this usable for personal-IP account operation.
 
+The content goal is that **a viewer finishes the set knowing what to do**. Every panel
+caption is one concrete instruction in the imperative, with no teasers. Topics are framed
+from a curated library of books: Munger, Schopenhauer, Wang Yangming, 曾仕强's 易经,
+Wu Jun and others. See [prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md).
+
 The layout constants and content rules were reverse-engineered from 72 real posts across
 four accounts — see [docs/format-analysis.md](docs/format-analysis.md).
 
@@ -44,13 +49,13 @@ Then wire up a real model:
 ```bash
 cp config.example.yaml config.yaml     # set your model IDs
 cp .env.example .env                   # set your API key
-python -m dig run --theme "楼盘名字里的暗号" --style retro_comic --handle your_douyin_id
+python -m dig run --theme "楼盘名字里的暗号" --style retro_comic
 ```
 
 On Windows:
 
 ```powershell
-.\run.ps1 "楼盘名字里的暗号" -Handle your_douyin_id
+.\run.ps1 "楼盘名字里的暗号"
 ```
 
 Output lands in `output/<timestamp>_<theme>/`:
@@ -59,8 +64,8 @@ Output lands in `output/<timestamp>_<theme>/`:
 pages/01.jpg … 06.jpg   ← the finished images, ready to upload
 panels/                 ← raw per-panel art (for re-rolling a single panel)
 script.json             ← the shot script; edit it and re-render
-caption.txt             ← title, post copy, hashtags, per-panel lines, pre-publish checklist
-manifest.json           ← which model/style/seed was used, and which panels failed
+caption.txt             ← title, post copy, hashtags, source, per-panel lines, pre-publish checklist
+manifest.json           ← which model/style/seed/source was used, and which panels failed
 ```
 
 ---
@@ -93,7 +98,7 @@ Built-in presets: `retro_comic` (closest to the reference posts), `ins_minimal`,
 
 ```bash
 python -m dig character add --id my_ip --name 小圆 --photo me.jpg --stylize
-python -m dig run --theme "第一次租房避坑" --character my_ip --handle your_douyin_id
+python -m dig run --theme "第一次租房避坑" --character my_ip
 ```
 
 Character consistency across a set uses **three locks** — drop any one and the character
@@ -176,8 +181,9 @@ and continue. `--strict` promotes warnings to errors; `--no-validate` skips the 
 you should not need.
 
 What it catches: captions over length, serial-numbered captions, duplicates, unbalanced
-quotes, empty or too-thin scenes, scenes asking for text the renderer forbids, uneven panel
-counts, page counts outside the workable range, and a missing character block.
+quotes, captions that tease or ask instead of instructing, empty or too-thin scenes, scenes
+asking for text the renderer forbids (including 《book titles》), uneven panel counts, page
+counts outside the workable range, and a missing character block.
 
 Other rails that are just on:
 
@@ -212,21 +218,29 @@ templates.
 3. Generate them all:
 
 ```bash
-python -m dig batch --file topics.json --style retro_comic --character my_ip --handle your_douyin_id
+python -m dig batch --file topics.json --style retro_comic --character my_ip
 ```
 
 Topic file shape (full example in `examples/topics.sample.json`):
 
 ```json
-[{ "theme": "楼盘名字里的那些字分别代表什么档次",
-   "angle": "从第一次看售楼部的买房小白视角",
-   "audience": "准备买房的年轻人", "pages": 6 }]
+[{ "theme": "芒格的反向思考：想把日子过好，先避开会让人变惨的那几件事",
+   "source": "《穷查理宝典》· 第一讲 哈佛学校毕业演讲（反过来想）",
+   "angle": "把芒格开的'痛苦药方'反过来，一格一条今天就能照做的规矩",
+   "audience": "25-35岁想少走弯路的上班族", "pages": 6 }]
 ```
 
-That prompt is deliberately strict about the one constraint that decides whether a topic
-works in this format: **it must split into 10–14 parallel, drawable points.** It forces the
-model to write out the first four captions as proof before a topic is accepted. The prompt
-itself is in Chinese because its output must be Chinese;
+That prompt carries a **source library**: for each of the reference books it lists only the
+ideas that turn directly into actions, paraphrased, with the structures they suit and the
+content boundaries (no scheming, no medical claims, no stock picks). At least 9 of the 12
+topics it returns must come from that library. A topic's `source` travels through
+`dig batch` into the script prompt, so the script stays faithful to the book, and ends up in
+`caption.txt`.
+
+It is also strict about the one constraint that decides whether a topic works in this
+format: **it must split into 10–14 parallel instructions a viewer can act on today.** The
+model has to write out the first four captions as proof before a topic is accepted. The
+prompt itself is in Chinese because its output must be Chinese;
 [prompts/README.md](prompts/README.md) explains what it does in English.
 
 ---
@@ -265,13 +279,13 @@ Read AGENTS.md and README.md, install the dependencies, run dig doctor, and comp
 **Draft and validate a carousel before generating art**
 
 ```text
-Create a 6-page, two-panel-per-page script about “Six traps first-time renters miss” in a practical, plainspoken voice. Use examples/script.minimal.json and the schema, define one consistent mascot, and run dig validate. Show me all captions, the panel count, and the number of billed image calls; do not render yet.
+Pick Munger's inversion idea from the source library in prompts/topic_ideation_zh.md and write a 6-page, two-panel-per-page script where every caption is one instruction a viewer can act on today. Use examples/script.minimal.json and the schema, fill in source, define one consistent mascot, and run dig validate. Show me all captions, the panel count, and the number of billed image calls; do not render yet.
 ```
 
 **Generate the final carousel**
 
 ```text
-Render the validated rental-traps script with the retro_comic style and Douyin handle my_account. Inspect every finished page, confirm character consistency and readable captions, then check manifest.json for errors. Reuse the cache and regenerate only failed or changed panels.
+Render the validated inversion script with the retro_comic style. Inspect every finished page, confirm character consistency and readable captions, then check manifest.json for errors. Reuse the cache and regenerate only failed or changed panels.
 ```
 
 **Register a photo-based protagonist**
@@ -284,7 +298,7 @@ Every command is plain CLI. Exit codes: `0` success, `2` bad arguments/config, `
 where everything failed. Output paths are deterministic:
 
 ```bash
-python -m dig run --theme "$THEME" --character my_ip --handle "$HANDLE" --out ./out/task123
+python -m dig run --theme "$THEME" --source "$SOURCE" --character my_ip --out ./out/task123
 ```
 
 Then read `./out/task123/manifest.json`:
@@ -337,7 +351,7 @@ python -m dig run \
   --theme "第一次租房避坑" \
   --style retro_comic \          # style preset
   --character my_ip \            # fixed protagonist
-  --handle your_douyin_id \      # footer watermark
+  --source "《穷查理宝典》· 反过来想" \  # which book idea the script follows
   --pages 6 --panels 2 \         # 6 images, 2 panels each
   --audience "刚毕业的大学生" \
   --angle "从被坑过三次的过来人视角" \
@@ -360,7 +374,7 @@ against identical art.
 | Finding | Fix | Result |
 |---|---|---|
 | **69% of every generated panel was discarded.** AgentPlan forces ≥3.7 MP per image, and a 1440×1920 page only uses 1.2 MP of it | Default canvas raised to **1792×2400** — the exact size of the reference originals | Discard drops to 49%. **Generation cost unchanged** — those pixels were already being paid for |
-| Print texture was applied *after* the captions, putting grain on the text | Texture now goes on paper and art only; captions and watermark are composited afterwards | Caption banner is pixel-identical with grain on or off. Caption contrast +6.5% |
+| Print texture was applied *after* the captions, putting grain on the text | Texture now goes on paper and art only; captions are composited afterwards | Caption banner is pixel-identical with grain on or off. Caption contrast +6.5% |
 | Downscaling 1.4–1.8× blurred halftone dots and hatching | Mild unsharp mask after significant downscales only (`page.sharpen`) | Fine-detail edge energy **+19%**. Tuned down after an earlier setting left visible halos on the thickest ink lines |
 | A six-panel set looked like six print runs: brightness varied by ~42 levels, warmth by ~22 | Partial per-channel gamma pulling each panel toward the set median (`page.harmonize`) | Brightness spread −23–29%, colour-cast spread −18%, **pure black ink untouched** |
 
@@ -383,7 +397,7 @@ Local rendering is fully deterministic — and it means rewriting copy costs sec
 of another round of paid generation. Every panel prompt explicitly forbids text in the image.
 
 **Each panel is generated separately, not as a whole page.**
-Asking a model to draw "two panels plus banners plus a footer" gives up control of
+Asking a model to draw "two panels plus banners" gives up control of
 composition and guarantees mangled text. Instead each panel is requested at 1.15× its final
 box and centre-cropped, so composition stays stable and any single panel can be re-rolled
 without touching the others.
@@ -418,13 +432,13 @@ dig/                 source
   script_gen.py      shot-script generation (content quality lives here)
   prompt_builder.py  per-panel prompt assembly
   imagegen.py        concurrency, retries, caching, fallback
-  compositor.py      composition: banners, borders, watermark, aged texture
+  compositor.py      composition: banners, borders, aged texture
   character.py       personal-IP protagonist
   style.py           style presets / reference-image derivation
   fonts.py           font discovery + CJK line breaking
   providers/         ark / openai / gemini / mock
 styles/              style preset YAML — add your own
-prompts/             topic-ideation prompt for ChatGPT
+prompts/             topic-ideation prompt for ChatGPT, with the book source library
 docs/                reference-format breakdown, provider API notes
 ```
 

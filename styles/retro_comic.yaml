@@ -24,7 +24,6 @@ page:
   background: "#EDE3CC"
   margin: 46
   gap: 26
-  footer: 128
 
 panel:
   border: 5
@@ -43,14 +42,6 @@ banner:
   top: 34
   max_width: 0.88
   max_lines: 2
-
-watermark:
-  enabled: true
-  text: "抖音号：{handle}"
-  color: "#FFFFFF"
-  outline: "#00000066"
-  font_size: 46
-  icon: true
 
 texture:
   grain: 0.06

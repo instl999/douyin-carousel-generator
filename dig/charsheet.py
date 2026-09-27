@@ -37,8 +37,9 @@ PROMPT = """画一张角色定妆图（character reference sheet）。
 - 不要出现任何文字、水印、logo、边框、分格线。"""
 
 
-def sheet_cache_path(cfg_root: str, character: Character, style: StylePreset) -> str:
-    key = sha1(character.sheet, character.signature, style.id, style.prompt, SHEET_SIZE)
+def sheet_cache_path(cfg_root: str, character: Character, style: StylePreset, engine: str = "") -> str:
+    # engine 进 key：离线试跑画的占位定妆图，绝不能被真跑拿去当长相参考
+    key = sha1(engine, character.sheet, character.signature, style.id, style.prompt, SHEET_SIZE)
     return os.path.join(
         ensure_dir(os.path.join(cfg_root, ".cache", "charsheet")), key[:20] + ".png"
     )
@@ -74,7 +75,7 @@ def ensure_character_sheet(
     if not (character.sheet or "").strip():
         return None
 
-    cache = sheet_cache_path(cfg_root, character, style)
+    cache = sheet_cache_path(cfg_root, character, style, getattr(engine, "name", type(engine).__name__))
     dest = os.path.join(ensure_dir(out_dir), "character_sheet.png")
 
     if use_cache and os.path.isfile(cache):

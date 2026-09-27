@@ -41,7 +41,6 @@ DEFAULTS: Dict[str, Any] = {
         "language": "zh",
     },
     "style": "retro_comic",
-    "handle": "",                 # 抖音号，写进页脚
     "text": {
         # 文案由本地字体渲染，画图模型不画字（中文极易糊）
         "render_mode": "overlay",   # overlay / native
@@ -240,7 +239,6 @@ ENV_MAP = {
     "DIG_IMAGE_MODEL": "providers.image.model",
     "DIG_IMAGE_BASE_URL": "providers.image.base_url",
     "DIG_STYLE": "style",
-    "DIG_HANDLE": "handle",
     "DIG_OUTPUT_DIR": "output_dir",
     "DIG_FONT": "text.font",
 }

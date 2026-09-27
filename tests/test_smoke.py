@@ -20,7 +20,7 @@ from dig import pipeline, script_gen  # noqa: E402
 from dig.compositor import PageGeometry, fit_cover, hex_rgba  # noqa: E402
 from dig.config import load_config  # noqa: E402
 from dig.fonts import find_font, fit_text, load_font, text_width, wrap_text  # noqa: E402
-from dig.models import Deck  # noqa: E402
+from dig.models import Beat, Deck  # noqa: E402
 from dig.providers.mock import MockChat, MockImage, parse_meta  # noqa: E402
 from dig.style import load_style  # noqa: E402
 
@@ -50,6 +50,39 @@ def test_caption_cleaning():
     assert script_gen.clean_caption("第2条路最难走") == "第2条路最难走"
 
 
+def test_scene_cleaning_drops_book_titles():
+    """模型写的场景里带《书名》，画出来就是乱码封面；换成"书"字，句子照样通。"""
+    assert script_gen.clean_scene("主角坐在窗边翻开《穷查理宝典》认真读") == "主角坐在窗边翻开书认真读"
+    assert "《" not in script_gen.clean_scene("桌上放着《易经》和《论语》，主角在沉思")
+
+
+def test_source_goes_into_the_script_prompt():
+    with_src = script_gen.build_prompt("主题", 6, 2, source="《穷查理宝典》· 逆向思维")
+    assert "【取材】《穷查理宝典》· 逆向思维" in with_src
+    assert "【取材】" not in script_gen.build_prompt("主题", 6, 2)
+    assert parse_meta(with_src)["task"] == "script"     # 埋给 mock 的参数照样能解析
+
+
+def test_script_prompt_asks_for_instructions_not_teasers():
+    """回归测试：旧提示词要第一格"反常识、抛一个我以为…其实…"，写出来的全是悬念格。"""
+    s = script_gen.SYSTEM
+    assert "祈使句" in s and "照着做" in s
+    assert "不卖关子" in s
+    assert "我以为" not in s
+    assert "不编造原文" in s
+    assert "《》" in s                 # 场景里不许写书名号
+
+
+def test_panel_prompt_strips_book_title_marks_from_theme():
+    from dig.prompt_builder import panel_prompt
+
+    deck = Deck(theme="《易经》乾卦六条龙", title="一个标题")
+    beat = Beat(caption="潜龙期：闷头练本事", scene="主角深夜独自在工位前练习，窗外是写字楼群")
+    style = load_style(load_config(root=ROOT), "retro_comic")
+    text = panel_prompt(beat, deck, style, None, 1, 12)
+    assert "《" not in text and "易经乾卦六条龙" in text
+
+
 def test_wrap_cjk():
     path, idx = find_font(root=ROOT, bold=True)
     font = load_font(path, 40, idx)
@@ -76,9 +109,24 @@ def test_geometry_two_panels():
     assert len(geo.panel_boxes) == 2
     (x0, y0, x1, y1) = geo.panel_boxes[0]
     assert x1 > x0 and y1 > y0
-    # 两格不重叠，且都在页脚之上
+    # 两格不重叠，且都在画布底边留白之内
     assert geo.panel_boxes[1][1] >= y1
-    assert geo.panel_boxes[1][3] <= geo.footer_box[1]
+    assert geo.panel_boxes[1][3] <= geo.height - geo.margin
+
+
+def test_no_footer_band_under_the_panels():
+    """抖音号页脚去掉了：底边留白必须和两侧一样宽，不能留一条空纸。"""
+    cfg = load_config(root=ROOT)
+    from dig.style import list_styles
+
+    for name in list_styles(cfg):
+        style = load_style(cfg, name)
+        for panels in (1, 2, 3):
+            geo = PageGeometry(1792, 2400, style, panels)
+            bottom_margin = geo.height - geo.panel_boxes[-1][3]
+            # 画格高度取整，最多多出 panels 个像素
+            assert 0 <= bottom_margin - geo.margin <= panels, (name, panels, bottom_margin, geo.margin)
+            assert geo.panel_boxes[0][1] == geo.margin
 
 
 def test_fit_cover_exact_size():
@@ -103,6 +151,10 @@ def test_mock_script_shape():
     assert all(len(p.beats) == 2 for p in deck.pages)
     assert all(1 <= len(b.caption) <= 14 for b in deck.all_beats)
     assert deck.hashtags
+    # 离线占位文案也要是祈使句，不能示范卖关子
+    from dig.validate import TEASER_RE
+
+    assert not any(TEASER_RE.search(b.caption) for b in deck.all_beats)
 
 
 def test_mock_image_is_png():
@@ -124,7 +176,7 @@ def test_full_offline_pipeline():
 
     with tempfile.TemporaryDirectory() as tmp:
         cfg = _cfg(tmp)
-        result = pipeline.run(cfg, theme="离线冒烟测试主题", pages=5, panels=2, handle="TestID")
+        result = pipeline.run(cfg, theme="离线冒烟测试主题", pages=5, panels=2)
         files = result["files"]
         assert len(files) == 5
         for f in files:
@@ -135,7 +187,29 @@ def test_full_offline_pipeline():
         assert os.path.isfile(os.path.join(result["out_dir"], "caption.txt"))
         assert os.path.isfile(os.path.join(result["out_dir"], "manifest.json"))
         with open(result["caption"], "r", encoding="utf-8") as fh:
-            assert "发布前自检" in fh.read()
+            caption = fh.read()
+        assert "发布前自检" in caption
+        assert "抖音号" not in caption          # 水印去掉了，自检清单里也不该再提
+        with open(result["manifest"], "r", encoding="utf-8") as fh:
+            assert "handle" not in json.load(fh)
+
+
+def test_panel_cache_is_separate_per_engine():
+    """同一份脚本先 --offline 再真跑，真跑绝不能把 mock 占位图当缓存命中。"""
+    from dig.imagegen import cache_path
+
+    args = ("cache", "同一条提示词", 1929, 1296, [], None)
+    assert cache_path(*args, engine="mock-image") != cache_path(*args, engine="ark-image")
+    assert cache_path(*args, engine="ark-image") == cache_path(*args, engine="ark-image")
+
+
+def test_source_is_kept_in_the_generated_script():
+    with tempfile.TemporaryDirectory() as tmp:
+        cfg = _cfg(tmp)
+        result = pipeline.run(cfg, theme="取材测试", pages=5, panels=2,
+                              source="《王阳明大传》· 事上磨练", script_only=True)
+        with open(result["script"], "r", encoding="utf-8") as fh:
+            assert json.load(fh)["source"] == "《王阳明大传》· 事上磨练"
 
 
 def test_render_from_edited_script():
@@ -168,6 +242,39 @@ def test_styles_all_loadable():
         assert preset.prompt, name
         assert "background" in preset.page
         assert "fill" in preset.banner
+
+
+def test_old_files_with_handle_and_watermark_still_load():
+    """水印去掉之前存下的脚本和自定义画风，必须照样能用，不能因为多一个键就报错。"""
+    from dig.models import StylePreset
+
+    old_script = {
+        "theme": "旧脚本", "title": "一个旧的标题", "handle": "old_douyin_id",
+        "pages": [{"index": 1, "beats": [{"caption": "旧标题", "scene": "主角站在街边"}]}],
+    }
+    deck = Deck.from_dict(old_script)
+    assert deck.theme == "旧脚本"
+    assert "handle" not in deck.to_dict()
+
+    old_style = {"id": "mine", "prompt": "水彩", "watermark": {"enabled": True, "text": "抖音号：{handle}"}}
+    preset = StylePreset.from_dict(old_style)
+    assert preset.id == "mine"
+    assert not hasattr(preset, "watermark")
+
+
+def test_cli_has_source_but_no_handle():
+    from dig.cli import build_parser
+
+    parser = build_parser()
+    args = parser.parse_args(["run", "--theme", "t", "--source", "《穷查理宝典》· 逆向思维"])
+    assert args.source == "《穷查理宝典》· 逆向思维"
+    for cmd in (["run", "--theme", "t"], ["script", "--theme", "t"],
+                ["render", "--script", "x.json"], ["batch", "--file", "x.json"]):
+        try:
+            parser.parse_args(cmd + ["--handle", "someone"])
+        except SystemExit:
+            continue
+        raise AssertionError("%s 不该再接受 --handle" % cmd[0])
 
 
 # --------------------------------------------------------------------------- #

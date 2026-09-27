@@ -51,7 +51,7 @@ def test_layout_scales_with_canvas():
     big = PageGeometry(1792, 2400, _style(), 2)
     assert abs(big.scale - 1.244) < 0.01
     assert abs(big.margin / small.margin - big.scale) < 0.05
-    assert abs(big.footer / small.footer - big.scale) < 0.05
+    assert abs(big.gap / small.gap - big.scale) < 0.05
     # 画格比例基本不变 —— 否则换尺寸就等于换了构图
     ra = small.panel_size()[0] / small.panel_size()[1]
     rb = big.panel_size()[0] / big.panel_size()[1]
@@ -118,7 +118,7 @@ def _render(tmp, grain, name):
     art = os.path.join(tmp, "a.png")
     _line_art().save(art)
     beats = [Beat(caption="测试标题", scene="s", image=art) for _ in range(2)]
-    deck = Deck(theme="t", pages=[Page(index=1, beats=beats)], handle="h")
+    deck = Deck(theme="t", pages=[Page(index=1, beats=beats)])
     cfg = load_config(root=ROOT)
     cfg.set("page.format", "png")        # 排除 JPEG 压缩噪声
     cfg.set("page.harmonize", 0)

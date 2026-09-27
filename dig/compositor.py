@@ -1,4 +1,4 @@
-"""排版合成：把 AI 底图 + 标题横幅 + 页脚水印，拼成可直接发布的成图。
+"""排版合成：把 AI 底图 + 标题横幅，拼成可直接发布的成图。
 
 为什么不让画图模型直接写中文标题？
 因为中文字形复杂，主流模型经常缺笔画、串字、糊边，一套 6 张只要糊一张就废了。
@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 from . import harmonize
 from .config import Config
-from .fonts import fit_text, find_font, load_font, text_width
+from .fonts import fit_text, find_font, text_width
 from .models import Beat, Deck, Page, StylePreset
 from .util import debug, ensure_dir, sha1, warn
 
@@ -141,7 +141,11 @@ DESIGN_HEIGHT = 1920
 
 
 class PageGeometry:
-    """一张成图的所有盒子位置。尺寸随画布等比缩放。"""
+    """一张成图的所有盒子位置。尺寸随画布等比缩放。
+
+    四边留白一样宽。以前底部多留了一条页脚放抖音号，水印去掉以后那条空纸
+    只会让整页看起来底下缺了一块，所以画格直接往下铺到和两侧一样的留白。
+    """
 
     def __init__(self, width: int, height: int, style: StylePreset, panels: int):
         p = style.page
@@ -151,12 +155,11 @@ class PageGeometry:
         k = self.scale
         self.margin = max(1, int(round(int(p.get("margin", 46)) * k)))
         self.gap = max(0, int(round(int(p.get("gap", 26)) * k)))
-        self.footer = max(1, int(round(int(p.get("footer", 128)) * k)))
         self.panels = max(1, int(panels))
 
         inner_w = width - self.margin * 2
         top = self.margin
-        bottom = height - self.footer
+        bottom = height - self.margin
         avail = bottom - top - self.gap * (self.panels - 1)
         panel_h = int(avail / float(self.panels))
 
@@ -165,8 +168,6 @@ class PageGeometry:
         for _ in range(self.panels):
             self.panel_boxes.append((self.margin, y, self.margin + inner_w, y + panel_h))
             y += panel_h + self.gap
-
-        self.footer_box = (0, bottom, width, height)
 
     def panel_size(self) -> Tuple[int, int]:
         x0, y0, x1, y1 = self.panel_boxes[0]
@@ -263,90 +264,6 @@ def draw_banner(
         y += lh
 
 
-def draw_watermark(
-    canvas: Image.Image,
-    geo: PageGeometry,
-    style: StylePreset,
-    handle: str,
-    font_path: Optional[str],
-    font_index: int,
-    scale: float = 1.0,
-) -> None:
-    """页脚：♪ 抖音号：xxxxx"""
-    conf = style.watermark
-    if not conf.get("enabled", True) or not handle:
-        return
-
-    text = str(conf.get("text", "抖音号：{handle}")).replace("{handle}", handle)
-    size = max(8, int(round(int(conf.get("font_size", 46)) * scale)))
-    font = load_font(font_path, size, font_index)
-    draw = ImageDraw.Draw(canvas, "RGBA")
-
-    tw = text_width(font, text)
-    icon_w = int(size * 0.95) if conf.get("icon", True) else 0
-    gap = int(size * 0.3) if icon_w else 0
-    total = tw + icon_w + gap
-
-    fx0, fy0, fx1, fy1 = geo.footer_box
-    cx = (fx0 + fx1) / 2.0
-    cy = (fy0 + fy1) / 2.0
-    x = cx - total / 2.0
-    y = cy - size * 0.62
-
-    color = hex_rgba(conf.get("color", "#FFFFFF"))
-    outline = hex_rgba(conf.get("outline", "#00000055"))
-
-    if icon_w:
-        _draw_note(draw, x, y, size, color, outline)
-        x += icon_w + gap
-
-    try:
-        draw.text(
-            (int(x), int(y)),
-            text,
-            font=font,
-            fill=color,
-            stroke_width=max(1, size // 22),
-            stroke_fill=outline,
-        )
-    except TypeError:  # 老版本 Pillow 不支持 stroke
-        draw.text((int(x), int(y)), text, font=font, fill=color)
-
-
-def _draw_note(draw: ImageDraw.ImageDraw, x: float, y: float, size: int, color, outline) -> None:
-    """手绘一个音符图标（不依赖图标字体）。"""
-    s = size
-    stem_w = max(2, int(s * 0.09))
-    head_r = int(s * 0.21)
-    top = y + s * 0.10
-    bottom = y + s * 0.80
-    stem_x = x + s * 0.52
-    draw.rounded_rectangle(
-        [int(stem_x), int(top), int(stem_x + stem_w), int(bottom)],
-        radius=stem_w // 2,
-        fill=color,
-    )
-    draw.ellipse(
-        [
-            int(stem_x - head_r * 1.5),
-            int(bottom - head_r),
-            int(stem_x + stem_w + head_r * 0.2),
-            int(bottom + head_r),
-        ],
-        fill=color,
-    )
-    # 旗子
-    draw.polygon(
-        [
-            (int(stem_x + stem_w), int(top)),
-            (int(stem_x + stem_w + s * 0.30), int(top + s * 0.10)),
-            (int(stem_x + stem_w + s * 0.26), int(top + s * 0.30)),
-            (int(stem_x + stem_w), int(top + s * 0.20)),
-        ],
-        fill=color,
-    )
-
-
 def _edge_wear(canvas: Image.Image, style: StylePreset, seed: int) -> None:
     """做旧：沿纸张边缘画不规则的浅色缺口。"""
     if not style.texture.get("edge_wear", True):
@@ -380,7 +297,6 @@ def render_page(
     out_path: str,
     font_path: Optional[str] = None,
     font_index: int = 0,
-    body_font_path: Optional[str] = None,
     adjust=None,
 ) -> str:
     width = int(cfg.get("page.width", 1440))
@@ -453,16 +369,6 @@ def render_page(
     for beat, box in zip(page.beats, boxes):
         draw_banner(canvas, box, beat.caption, style, font_path, font_index, scale=k)
 
-    draw_watermark(
-        canvas,
-        geo,
-        style,
-        deck.handle or str(cfg.get("handle", "") or ""),
-        body_font_path or font_path,
-        font_index,
-        scale=k,
-    )
-
     ensure_dir(os.path.dirname(out_path))
     fmt = str(cfg.get("page.format", "jpg")).lower()
     if fmt in ("jpg", "jpeg"):
@@ -521,7 +427,6 @@ def render_deck(
         bold=True,
         index=int(cfg.get("text.font_index", 0) or 0),
     )
-    body_path, _ = find_font(root=cfg.root, bold=False)
     if not font_path:
         warn("没找到中文字体，标题可能显示成方块。见 dig doctor 的提示。")
 
@@ -542,8 +447,7 @@ def render_deck(
         out = os.path.join(out_dir, "%02d.%s" % (page.index, ext))
         render_page(
             page, deck, style, cfg, out,
-            font_path=font_path, font_index=font_index, body_font_path=body_path,
-            adjust=adjust,
+            font_path=font_path, font_index=font_index, adjust=adjust,
         )
         page.file = out
         files.append(out)
