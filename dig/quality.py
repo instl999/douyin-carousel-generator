@@ -121,3 +121,16 @@ REDRAW_HINT = (
 
 def needs_redraw(report: Optional[PanelReport]) -> bool:
     return report is not None and not report.ok
+
+
+def better(a: Optional[PanelReport], b: Optional[PanelReport]) -> bool:
+    """a 是否比 b 更好。重画两次都不过时，留下空地更少的那张 —— 两张都付过钱了。"""
+    if b is None:
+        return True
+    if a is None:
+        return False
+    if a.ok != b.ok:
+        return a.ok
+    if a.dead_bands != b.dead_bands:
+        return a.dead_bands < b.dead_bands
+    return a.min_sd > b.min_sd

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 
 def _force_utf8_console() -> None:

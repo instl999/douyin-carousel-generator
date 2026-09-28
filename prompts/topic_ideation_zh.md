@@ -10,10 +10,12 @@
 发送。它会吐出一份 JSON，直接存成 `topics.json`，然后：
 
 ```bash
-python -m dig batch --file topics.json --style retro_comic --character 小圆
+python -m dig batch --file topics.json --style retro_comic --character my_ip
 ```
 
 每条选题的 `source`（取材出处）会一路带进写脚本的提示词，脚本会按那本书的原意来写。
+`title`、`type`、`beats_preview`、`hashtags` 也会作为参考交给写脚本的模型
+（`beats_preview` 是这里验证过能拆点的前几格，脚本会顺着同样的句式往下写）。
 让 Agent 自己写脚本时，也从第四节的取材库里挑观点，写进 script.json 的 `source`。
 
 ---

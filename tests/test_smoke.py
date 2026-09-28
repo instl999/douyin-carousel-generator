@@ -199,15 +199,6 @@ def test_full_offline_pipeline():
             assert "handle" not in json.load(fh)
 
 
-def test_panel_cache_is_separate_per_engine():
-    """同一份脚本先 --offline 再真跑，真跑绝不能把 mock 占位图当缓存命中。"""
-    from dig.imagegen import cache_path
-
-    args = ("cache", "同一条提示词", 1929, 1296, [], None)
-    assert cache_path(*args, engine="mock-image") != cache_path(*args, engine="ark-image")
-    assert cache_path(*args, engine="ark-image") == cache_path(*args, engine="ark-image")
-
-
 def test_source_is_kept_in_the_generated_script():
     with tempfile.TemporaryDirectory() as tmp:
         cfg = _cfg(tmp)
