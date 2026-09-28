@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from .config import Config
 from .models import StylePreset
 from .providers.base import TextEngine
-from .util import DigError, debug, extract_json, log, slugify, warn
+from .util import DigError, extract_json, slugify, warn
 
 try:
     import yaml  # type: ignore
@@ -43,14 +43,16 @@ DEFAULT_LAYOUT: Dict = {
         "stroke_width": 3,
         "text_color": "#1C1A17",
         "radius": 18,
-        "pad_x": 34,
-        "pad_y": 18,
+        "pad_x": 34,                  # 文字左右留白
+        "pad_y": 34,                  # 文字**墨迹**上下留白（按墨迹居中，不按行高）
         "top": 34,                    # 距画格顶部
         "max_width": 0.86,            # 占画格宽度比例
         "max_lines": 2,
         "font_size": 76,
         "min_font_size": 30,
-        "align": "center",            # center / left
+        "align": "center",            # 横幅内文字：center / left
+        "position": "center",         # 横幅在画格里的位置：center / left
+        "shape": "rounded",           # rounded / pill / plaque / tape / glow
         "shadow": True,
     },
     "texture": {
@@ -58,6 +60,10 @@ DEFAULT_LAYOUT: Dict = {
         "vignette": 0.10,             # 暗角
         "halftone": 0.0,              # 半调网点（0 关闭）
         "edge_wear": True,            # 做旧边缘
+    },
+    "quality": {
+        "enabled": True,              # 生成后查"顶部大片纯色空地"
+        "max_dead_bands": 2,          # 顶部 7 条扫描带里允许几条是死色
     },
 }
 
@@ -125,6 +131,7 @@ def load_style(cfg: Config, style_id: str) -> StylePreset:
     preset.panel = _merge(DEFAULT_LAYOUT["panel"], data.get("panel") or {})
     preset.banner = _merge(DEFAULT_LAYOUT["banner"], data.get("banner") or {})
     preset.texture = _merge(DEFAULT_LAYOUT["texture"], data.get("texture") or {})
+    preset.quality = _merge(DEFAULT_LAYOUT["quality"], data.get("quality") or {})
     if not preset.prompt:
         preset.prompt = (
             "复古印刷插画风，粗黑描边，低饱和暖色，半调网点质感，柔和暖光"

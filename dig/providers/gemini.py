@@ -9,7 +9,7 @@ import os
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..config import ProviderConf
-from ..util import DigError, debug, guess_mime, read_bytes
+from ..util import DigError, guess_mime, read_bytes
 from .base import ImageEngine, TextEngine, http_json, log_payload
 
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -28,7 +28,16 @@ def _inline_part(ref: str) -> Dict[str, Any]:
 
 def _endpoint(conf: ProviderConf, model: str) -> str:
     base = (conf.base_url or GEMINI_BASE).rstrip("/")
-    return "%s/models/%s:generateContent?key=%s" % (base, model, conf.require_key())
+    return "%s/models/%s:generateContent" % (base, model)
+
+
+def _auth(conf: ProviderConf) -> Dict[str, str]:
+    """Key 走请求头，不进 URL。
+
+    以前拼在 ?key= 里：任何一次 HTTP 报错，完整 URL（连同 Key）就会被写进
+    manifest.json、script.json 和控制台日志。
+    """
+    return {"x-goog-api-key": conf.require_key()}
 
 
 class GeminiChat(TextEngine):
@@ -63,7 +72,8 @@ class GeminiChat(TextEngine):
             payload["generationConfig"]["responseMimeType"] = "application/json"
 
         log_payload("gemini-chat", payload)
-        data = http_json(_endpoint(self.conf, self.conf.model), payload, timeout=self.conf.timeout)
+        data = http_json(_endpoint(self.conf, self.conf.model), payload,
+                         headers=_auth(self.conf), timeout=self.conf.timeout)
         return _extract_text(data)
 
 
@@ -96,7 +106,8 @@ class GeminiImage(ImageEngine):
 
         payload = {"contents": [{"role": "user", "parts": parts}]}
         log_payload("gemini-image", payload)
-        data = http_json(_endpoint(self.conf, self.conf.model), payload, timeout=self.conf.timeout)
+        data = http_json(_endpoint(self.conf, self.conf.model), payload,
+                         headers=_auth(self.conf), timeout=self.conf.timeout)
         return _extract_image(data)
 
 

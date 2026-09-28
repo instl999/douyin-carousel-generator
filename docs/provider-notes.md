@@ -16,9 +16,28 @@ Every request goes through the standard library `urllib`
 response body (truncated to 1200 chars), which usually names the offending field directly.
 Add `-v` to any command to log outgoing payloads, with base64 blobs elided.
 
+### Errors, retries and secrets
+
+| Failure | What happens |
+|---|---|
+| HTTP 401 / 403 (key rejected, model not enabled) | Not retried. The **whole run stops** after that one request and exits 2 — the next eleven panels would fail the same way |
+| HTTP 400 / 404 / 405 / 413 / 422 (bad request shape) | Not retried; that panel falls back to a placeholder and the run exits 1 |
+| HTTP 408 / 429 / 5xx, dropped connections, read timeouts | Retried with exponential backoff (`run.attempts`) |
+
+Error text is written into `manifest.json` and printed, so every message is passed through a
+redactor first: `?key=` query parameters, `Bearer` tokens and Google-style `AIza…` keys are
+replaced with `***`.
+
+### Caching
+
+The panel cache key is the prompt, size, seed, **the content of every reference image**,
+and the engine identity (provider, model, base URL). A different model — or the offline
+mock — never reuses another engine's pictures. Mock output is never cached at all. The
+character-sheet cache is keyed the same way.
+
 ---
 
-## 1. Volcengine Ark (default)
+## 1. Volcengine Ark (the default provider)
 
 [`dig/providers/ark.py`](../dig/providers/ark.py)
 
@@ -75,7 +94,16 @@ all four were found by hitting the live service:
 | `stream` | n/a | required on Lite (Pro rejects it, along with `sequential_image_generation`) |
 | `seed` | supported | **not supported** — omit it |
 
-The code picks its shape from the base URL, so both surfaces work from one provider.
+The code picks its shape from the base URL, so both surfaces work from one provider:
+
+```yaml
+providers:
+  image:
+    provider: ark
+    base_url: https://ark.cn-beijing.volces.com/api/plan/v3
+    model: <your AgentPlan Seedream 5.0 Lite model ID>
+    api_key_env: ARK_API_KEY
+```
 
 **Under-sized requests fail loudly and usefully:**
 
@@ -139,7 +167,8 @@ from one of those and images from Ark.
 [`dig/providers/gemini.py`](../dig/providers/gemini.py)
 
 ```
-POST {base}/models/{model}:generateContent?key=$GEMINI_API_KEY
+POST {base}/models/{model}:generateContent
+x-goog-api-key: $GEMINI_API_KEY
 
 {"contents": [{"role": "user", "parts": [
    {"text": "..."},
@@ -151,6 +180,10 @@ The image model is `gemini-2.5-flash-image`; output arrives at
 `candidates[0].content.parts[*].inlineData.data` as base64. Gemini does not take pixel
 dimensions, so the code appends an aspect-ratio instruction to the prompt instead.
 
+The key travels in the `x-goog-api-key` header. It used to be a `?key=` query parameter,
+which meant any HTTP error wrote the full URL — key included — into `manifest.json`,
+`script.json` and the console.
+
 **Character consistency is strongest here**, which makes it worth testing for personal-IP work.
 
 ---
@@ -160,7 +193,8 @@ dimensions, so the code appends an aspect-ratio instruction to the prompt instea
 [`dig/providers/mock.py`](../dig/providers/mock.py). No network. Placeholder art is
 generated deterministically from the prompt hash, and the text engine produces a
 structurally valid fake script by reading the `【生成参数】{...}` JSON block embedded in the
-prompt.
+prompt. It reports `billed = False`: its output is never written to the image cache and it
+skips the post-generation quality check (placeholders are flat colour blocks by design).
 
 It exists for two reasons:
 
@@ -183,4 +217,6 @@ providers:
 
 To add a brand-new service, implement `TextEngine.complete()` and `ImageEngine.generate()`
 following [`dig/providers/mock.py`](../dig/providers/mock.py), then register the name in
-[`dig/providers/__init__.py`](../dig/providers/__init__.py). Nothing else needs to change.
+[`dig/providers/__init__.py`](../dig/providers/__init__.py). Raise
+`HTTPStatusError(status, message)` for HTTP failures (`http_json` already does) so the
+retry and fail-fast rules above apply. Nothing else needs to change.

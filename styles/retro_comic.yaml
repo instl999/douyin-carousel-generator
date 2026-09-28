@@ -32,6 +32,7 @@ panel:
   inner_shadow: true
 
 banner:
+  shape: rounded          # 参考样例的暖黄圆角条
   fill: "#E9C877"
   stroke: "#2B2622"
   stroke_width: 3

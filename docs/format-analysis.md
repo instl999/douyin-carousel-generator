@@ -32,17 +32,22 @@ Every sample uses the identical structure:
 
 | Element | Observed | Tool default |
 |---|---|---|
-| Canvas ratio | 3:4 (originals at 1792×2400 and 1080×1440) | `1440×1920` |
-| Outer margin | ~2.5–3.5% of edge length | `margin: 46` |
-| Gap between panels | ~1.5% of height | `gap: 26` |
+| Canvas ratio | 3:4 (originals at 1792×2400 and 1080×1440) | `1792×2400` |
+| Outer margin | ~2.5–3.5% of edge length | `margin: 46` (design units) |
+| Gap between panels | ~1.5% of height | `gap: 26` (design units) |
 | Panel border | Dark brown/black, 4–6px | `border: 5`, `#2B2622` |
 | Banner fill | Warm yellow `#E9C877` / cream-tan `#D9C3A0` | `#E9C877` |
-| Banner position | ~3% down from the panel top | `top: 34` |
+| Banner position | ~3% down from the panel top | `top: 34` (design units) |
 | Banner width | Tracks text length, max ~88% of panel | `max_width: 0.88` |
-| Caption typeface | Heavy black sans (Source Han Sans Heavy class), pure black | Auto-detected system CJK bold |
-| Caption length | **5–14 characters**, most commonly 6–10 | `clean_caption` caps at 14 |
+| Banner height | Snug around the text, text visually centred | Sized from the text's **ink box**, `pad_y: 34` above and below |
+| Caption typeface | Heavy black sans (Source Han Sans Heavy class), pure black | Auto-detected system CJK bold; font collections pick the **Simplified Chinese** face |
+| Caption size | One size across the whole set | One size per set — the size the longest caption needs |
+| Caption length | **5–14 characters**, most commonly 6–10 | `validate` measures the rendered width; >18 full-width characters is an error |
 | Footer | Music-note glyph + `抖音号：xxx`, white with dark outline | Not drawn. The bottom margin equals the side margins |
-| Texture | Halftone + paper grain + vignette + worn edges | Four `texture` toggles |
+| Texture | Halftone + paper grain + vignette + worn edges | Four `texture` toggles; grain is zero-mean and leaves pure black/white untouched |
+
+Design units are pixels on a 1440×1920 canvas; every constant scales with the real canvas by
+the tighter axis (×1.244 at the default 1792×2400).
 
 ## 2. Content rules (these matter more than the layout)
 
@@ -84,9 +89,9 @@ panel prompt hard-forbids text in the image.
 
 **② Panel art is generated per panel, not per page.**
 Asking a model to draw a complete page — two panels and their banners — surrenders control of
-composition and guarantees mangled text. Instead each panel is requested at 1.15× its final
-box and centre-cropped, so composition stays stable and any single panel can be re-rolled
-independently.
+composition and guarantees mangled text. Instead each panel is requested at its own aspect ratio,
+1.15× its final box, and fitted locally, so composition stays stable and any single panel
+can be re-rolled independently (`dig reroll --panel N`).
 
 ## 4. Douyin's hard constraints
 
@@ -96,3 +101,6 @@ independently.
   zone; only the bottom of the lower panel's art can be covered.
 - The first image decides click-through, which is why `prompt_builder.cover_hint()` adds
   extra emphasis to panel 1.
+- Every output folder carries a `preview.jpg`: the set on one sheet plus page 1 inside a phone
+  mock-up with the UI zones (right-hand action rail, bottom author/caption block) outlined.
+  The zones are approximate — the app is the source of truth.

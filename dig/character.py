@@ -1,21 +1,22 @@
 """个人 IP 主角：上传一张照片，把「这个人」固定成每套图的主角。
 
-做法（三层锁定，缺一张图就容易崩人设）：
+做法（缺一层就容易崩人设）：
 1. 视觉模型读照片 → 写成文字版"角色设定卡"，注入每一格的提示词；
-2. 照片本身作为参考图（reference image）传给画图模型；
-3. 可选：先用照片生成一张"风格化角色定妆图"，之后所有格都以它为参考，
-   这样既锁住长相，也锁住画风（推荐，dig character add --stylize）。
+2. 用照片画一张**当前画风**的定妆图（纯色背景、只有人），各格都以它为参考图，
+   既锁住长相，也锁住画风。出图时自动完成并缓存；也可以提前手动生成：
+   dig character stylize --id my_ip --style retro_comic
+3. 定妆图按画风分开存：复古漫画的定妆图不会拿去锚国潮水墨。
 """
 from __future__ import annotations
 
 import os
 import shutil
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from .config import Config
 from .models import Character, StylePreset
 from .providers.base import ImageEngine, TextEngine
-from .util import DigError, debug, dump_json, ensure_dir, extract_json, load_json, log, slugify, warn
+from .util import DigError, dump_json, ensure_dir, extract_json, load_json, log, slugify, warn
 
 CHAR_SYSTEM = """你是角色设定师。你会看到一张人物照片，请把 TA 转写成一份可以喂给
 AI 绘画模型的"角色设定卡"。
@@ -40,18 +41,6 @@ CHAR_USER = """请根据这张照片写角色设定卡，输出 JSON：
 
 【生成参数】{{"task": "character", "name": "{name}"}}
 """
-
-STYLIZE_PROMPT = """把参考图里的人物，转绘成以下画风的角色定妆图。
-
-【画风】{style_prompt}
-
-【要求】
-- 保留参考图人物的长相特征、发型、标志性配饰，让人一眼认得出是同一个人；
-- 画面为该角色的半身正面像，表情自然友好，背景是干净的纯色底；
-- 全身比例协调，五官清晰，线条干净；
-- 画面中不要出现任何文字、水印、logo、边框。
-{character_sheet}"""
-
 
 def char_dir(cfg: Config, char_id: str) -> str:
     return os.path.join(cfg.characters_dir, char_id)
@@ -79,30 +68,39 @@ def load_character(cfg: Config, char_id: Optional[str]) -> Optional[Character]:
         )
     char = Character.from_dict(load_json(path))
     base = char_dir(cfg, char_id)
-    # 存的是相对路径，这里还原成绝对路径
-    if char.photo and not os.path.isabs(char.photo):
-        char.photo = os.path.join(base, char.photo)
-    if char.style_ref and not os.path.isabs(char.style_ref):
-        char.style_ref = os.path.join(base, char.style_ref)
+
+    def absolute(p: Optional[str]) -> Optional[str]:
+        # 存的是相对路径，这里还原成绝对路径
+        return p if (not p or os.path.isabs(p)) else os.path.join(base, p)
+
+    char.photo = absolute(char.photo)
+    char.style_ref = absolute(char.style_ref)
+    char.style_refs = {k: absolute(v) for k, v in char.style_refs.items()}  # type: ignore[misc]
     if char.photo and not os.path.isfile(char.photo):
         warn("角色照片丢了：" + str(char.photo))
         char.photo = None
     if char.style_ref and not os.path.isfile(char.style_ref):
         char.style_ref = None
+    char.style_refs = {k: v for k, v in char.style_refs.items() if v and os.path.isfile(v)}
     return char
 
 
 def save_character(cfg: Config, char: Character) -> str:
     base = ensure_dir(char_dir(cfg, char.id))
     data = char.to_dict()
-    # 存相对路径，整个目录可以直接拷走
-    for key in ("photo", "style_ref"):
-        val = data.get(key)
+
+    def relative(val: Optional[str]) -> Optional[str]:
+        # 存相对路径，整个目录可以直接拷走
         if val and os.path.isabs(val):
             try:
-                data[key] = os.path.relpath(val, base)
+                return os.path.relpath(val, base)
             except ValueError:
-                pass
+                return val
+        return val
+
+    for key in ("photo", "style_ref"):
+        data[key] = relative(data.get(key))
+    data["style_refs"] = {k: relative(v) for k, v in (data.get("style_refs") or {}).items()}
     path = os.path.join(base, "character.json")
     dump_json(path, data)
     return path
@@ -156,32 +154,25 @@ def stylize_character(
     image_engine: ImageEngine,
     char: Character,
     style: StylePreset,
-    size: int = 1440,
 ) -> Character:
-    """生成"风格化定妆图"，之后所有分格都以它为参考图 —— 角色一致性的关键一步。"""
-    if not char.photo:
-        raise DigError("角色 %s 没有照片，无法生成定妆图" % char.id)
+    """为**某一个画风**生成风格化定妆图，之后这个画风的所有分格都以它为参考图。
 
-    sheet = ("\n【角色特征】" + char.sheet) if char.sheet else ""
-    prompt = STYLIZE_PROMPT.format(
-        style_prompt=style.prompt,
-        character_sheet=sheet,
-    )
+    和出图时自动画的定妆图是同一套提示词（charsheet.render_sheet），区别只是
+    这张存进角色目录、长期保留，并且优先级最高。换画风要再跑一次。
+    """
+    from . import charsheet
+
+    if not (char.photo or (char.sheet or "").strip()):
+        raise DigError("角色 %s 既没有照片也没有外貌设定，无法生成定妆图" % char.id)
+
     log("正在生成角色定妆图（%s 风格）…" % style.name)
-    data = image_engine.generate(
-        prompt=prompt,
-        width=size,
-        height=size,
-        negative=style.negative,
-        refs=[char.photo],
-        seed=None,
-    )
+    data = charsheet.render_sheet(char, style, image_engine, negative=style.negative)
     base = ensure_dir(char_dir(cfg, char.id))
     out = os.path.join(base, "style_ref_%s.png" % style.id)
     with open(out, "wb") as fh:
         fh.write(data)
-    char.style_ref = out
+    char.style_refs[style.id] = out
+    char.style_ref = None           # 旧的单字段不再写，统一走 style_refs
     save_character(cfg, char)
-    log("定妆图已保存：" + out)
+    log("定妆图已保存：%s（只用于 %s 画风）" % (out, style.id))
     return char
-

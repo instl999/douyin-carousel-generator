@@ -1,6 +1,7 @@
 """引擎接口 + 轻量 HTTP 客户端（只用标准库，避免额外依赖）。"""
 from __future__ import annotations
 
+import http.client
 import json
 import mimetypes
 import os
@@ -8,16 +9,42 @@ import ssl
 import urllib.error
 import urllib.request
 import uuid
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple
 
-from ..util import DigError, debug
+from .. import __version__
+from ..util import DigError, HTTPStatusError, NetworkError, debug, redact
 
-DEFAULT_UA = "douyin-carousel-generator/0.3"
+DEFAULT_UA = "douyin-carousel-generator/" + __version__
 
 
 # --------------------------------------------------------------------------- #
 # HTTP
 # --------------------------------------------------------------------------- #
+def _send(req: urllib.request.Request, timeout: int) -> str:
+    """发请求、读响应。所有失败都翻译成带状态码 / 可判断能否重试的 DigError。
+
+    错误信息里的 URL 一律先脱敏：它会进 manifest.json，而有的服务商
+    （Gemini）习惯把 Key 放在查询参数里。
+    """
+    url = redact(req.full_url)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout, context=ssl.create_default_context()) as resp:
+            return resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8", "replace")[:1200]
+        except Exception:  # noqa: BLE001
+            pass
+        raise HTTPStatusError(exc.code, redact("HTTP %s %s\n%s" % (exc.code, url, detail))) from None
+    except urllib.error.URLError as exc:
+        raise NetworkError(redact("网络请求失败 %s：%s" % (url, exc.reason))) from None
+    except (OSError, http.client.HTTPException) as exc:
+        # 读响应时的超时、"Remote end closed connection without response" 不会被
+        # urllib 包成 URLError，以前原样漏出去，manifest 里只剩一行看不懂的类名。
+        raise NetworkError(redact("网络中断 %s：%s: %s" % (url, type(exc).__name__, exc))) from None
+
+
 def http_json(
     url: str,
     payload: Dict[str, Any],
@@ -25,7 +52,7 @@ def http_json(
     timeout: int = 180,
     method: str = "POST",
 ) -> Dict[str, Any]:
-    """发 JSON 请求，返回解析后的 dict；非 2xx 抛 DigError 并带上响应体。"""
+    """发 JSON 请求，返回解析后的 dict；非 2xx 抛 HTTPStatusError 并带上响应体。"""
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     hdrs = {
         "Content-Type": "application/json",
@@ -34,23 +61,11 @@ def http_json(
     }
     hdrs.update(headers or {})
     req = urllib.request.Request(url, data=body, headers=hdrs, method=method)
-    ctx = ssl.create_default_context()
-    try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-            raw = resp.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as exc:
-        detail = ""
-        try:
-            detail = exc.read().decode("utf-8", "replace")[:1200]
-        except Exception:
-            pass
-        raise DigError("HTTP %s %s\n%s" % (exc.code, url, detail)) from exc
-    except urllib.error.URLError as exc:
-        raise DigError("网络请求失败 %s：%s" % (url, exc.reason)) from exc
+    raw = _send(req, timeout)
     try:
         return json.loads(raw)
     except Exception as exc:  # noqa: BLE001
-        raise DigError("响应不是合法 JSON：" + raw[:800]) from exc
+        raise DigError("响应不是合法 JSON：" + redact(raw[:800])) from exc
 
 
 def http_multipart(
@@ -95,19 +110,11 @@ def http_multipart(
     }
     hdrs.update(headers or {})
     req = urllib.request.Request(url, data=bytes(buf), headers=hdrs, method="POST")
+    raw = _send(req, timeout)
     try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ssl.create_default_context()) as resp:
-            raw = resp.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as exc:
-        detail = ""
-        try:
-            detail = exc.read().decode("utf-8", "replace")[:1200]
-        except Exception:
-            pass
-        raise DigError("HTTP %s %s\n%s" % (exc.code, url, detail)) from exc
-    except urllib.error.URLError as exc:
-        raise DigError("网络请求失败 %s：%s" % (url, exc.reason)) from exc
-    return json.loads(raw)
+        return json.loads(raw)
+    except Exception as exc:  # noqa: BLE001
+        raise DigError("响应不是合法 JSON：" + redact(raw[:800])) from exc
 
 
 def http_download(url: str, timeout: int = 120) -> bytes:
@@ -115,8 +122,8 @@ def http_download(url: str, timeout: int = 120) -> bytes:
     try:
         with urllib.request.urlopen(req, timeout=timeout, context=ssl.create_default_context()) as resp:
             return resp.read()
-    except Exception as exc:  # noqa: BLE001
-        raise DigError("下载图片失败 %s：%s" % (url[:120], exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - 下载失败按网络问题处理，可以重试
+        raise NetworkError(redact("下载图片失败 %s：%s" % (url[:120], exc))) from None
 
 
 # --------------------------------------------------------------------------- #
@@ -141,6 +148,28 @@ class ImageEngine:
     """文生图 / 图生图引擎。返回图片二进制。"""
 
     name = "base"
+    # 调一次要不要钱。mock 不要钱，也不该进共享缓存。
+    billed = True
+
+    def cache_tag(self) -> str:
+        """这台引擎画出来的图的"出处"，拼进缓存键。
+
+        以前缓存键里只有提示词和尺寸：先 --offline 预览一遍脚本，再真跑，
+        12 格全部命中 mock 占位图的缓存，报告 12/12 成功、一分钱没花、出的全是占位图。
+        换模型（Seedream 4.0 → 5.0、Ark → Gemini）也会悄悄复用上一个模型的图。
+        """
+        conf = getattr(self, "conf", None)
+        if conf is None:
+            return self.name
+        return "|".join(
+            str(x) for x in (self.name, getattr(conf, "provider", ""), getattr(conf, "model", ""),
+                             (getattr(conf, "base_url", "") or "").rstrip("/"))
+        )
+
+    @property
+    def cacheable(self) -> bool:
+        """只有真金白银画出来的图才值得进共享缓存。"""
+        return bool(self.billed)
 
     def generate(
         self,
