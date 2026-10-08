@@ -1,5 +1,15 @@
 # douyin-carousel-generator
 
+<!-- repository-catalog:start -->
+**Category: Video creation and editing** · [Repositories in this category](https://github.com/instl999?tab=repositories&q=topic%3Avideo-creation)
+
+Generates two-panel explainer-comic carousels with configurable art styles, recurring protagonists and local Chinese typesetting.
+
+Related projects: [douyin-daodaoshou-tool](https://github.com/instl999/douyin-daodaoshou-tool) · [douyin-paper-video-maker](https://github.com/instl999/douyin-paper-video-maker) · [douyin-spongebob-economics-tool](https://github.com/instl999/douyin-spongebob-economics-tool)
+
+[简体中文](README.zh-CN.md)
+<!-- repository-catalog:end -->
+
 **One topic in → a ready-to-post set of 5–7 Douyin carousel images out.**
 
 [中文文档](README.zh-CN.md) · [**Agent contract**](AGENTS.md) · [Format breakdown](docs/format-analysis.md) · [Provider notes](docs/provider-notes.md)

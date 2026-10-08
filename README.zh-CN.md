@@ -1,5 +1,15 @@
 # 抖音图文轮播一键生成器
 
+<!-- repository-catalog:start -->
+**分类：视频创作与剪辑** · [同类仓库](https://github.com/instl999?tab=repositories&q=topic%3Avideo-creation)
+
+从主题生成双格科普漫画图组，支持画风配置、固定主角与本地中文排版。
+
+相关项目：[douyin-daodaoshou-tool](https://github.com/instl999/douyin-daodaoshou-tool) · [douyin-paper-video-maker](https://github.com/instl999/douyin-paper-video-maker) · [douyin-spongebob-economics-tool](https://github.com/instl999/douyin-spongebob-economics-tool)
+
+[English](README.md)
+<!-- repository-catalog:end -->
+
 [English](README.md) · [**Agent 使用契约**](AGENTS.md) · [版式拆解](docs/format-analysis.zh-CN.md) · [引擎对接备忘](docs/provider-notes.zh-CN.md)
 
 一个主题 → 5~7 张「双格科普漫画」→ 直接发布。
