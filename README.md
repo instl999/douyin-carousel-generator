@@ -7,14 +7,13 @@ Generates two-panel explainer-comic carousels with configurable art styles, recu
 
 Related projects: [douyin-daodaoshou-tool](https://github.com/instl999/douyin-daodaoshou-tool) · [douyin-paper-video-maker](https://github.com/instl999/douyin-paper-video-maker) · [douyin-spongebob-economics-tool](https://github.com/instl999/douyin-spongebob-economics-tool)
 
-[简体中文](README.zh-CN.md)
 <!-- repository-catalog:end -->
 
 **One topic in → a ready-to-post set of 5–7 Douyin carousel images out.**
 
-[中文文档](README.zh-CN.md) · [**Agent contract**](AGENTS.md) · [Format breakdown](docs/format-analysis.md) · [Provider notes](docs/provider-notes.md)
+[**Agent contract**](AGENTS.md) · [Format breakdown](docs/format-analysis.md) · [Provider notes](docs/provider-notes.md)
 
-Generates the "two-panel explainer comic" (双格科普漫画) format that performs well on
+Generates the "two-panel explainer comic" format that performs well on
 Douyin: each image is split into two panels, each panel carries one short caption banner,
 and the whole set covers a single theme. Art style is configured up front — pick a preset,
 describe one in a sentence, or hand it a reference image and let a vision model derive it.
@@ -24,7 +23,7 @@ this usable for personal-IP account operation.
 The content goal is that **a viewer finishes the set knowing what to do**. Every panel
 caption is plain counsel that works on its own: someone who sees only that one image
 understands it at a glance and learns something to do. Topics are framed from a curated
-library of books: Munger, Schopenhauer, Wang Yangming, 曾仕强's 易经, Wu Jun and others.
+library of books: Munger, Schopenhauer, Wang Yangming, Zeng Shiqiang's I Ching, Wu Jun and others.
 The books' own terms go in the title and post copy, never on the images. See
 [prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md).
 
@@ -49,7 +48,7 @@ four accounts — see [docs/format-analysis.md](docs/format-analysis.md).
 ```bash
 pip install -r requirements.txt
 python -m dig doctor                                      # check deps, fonts, API keys
-python -m dig run --theme "楼盘名字里的暗号" --offline      # dry run, costs nothing
+python -m dig run --theme "the hidden code in apartment names" --offline      # dry run, costs nothing
 ```
 
 `--offline` swaps every engine for a built-in **mock**: no network, no API key, placeholder
@@ -62,13 +61,13 @@ Then wire up a real model:
 ```bash
 cp config.example.yaml config.yaml     # set your model IDs (AgentPlan block included)
 cp .env.example .env                   # set your API key
-python -m dig run --theme "楼盘名字里的暗号" --style retro_comic
+python -m dig run --theme "the hidden code in apartment names" --style retro_comic
 ```
 
 On Windows:
 
 ```powershell
-.\run.ps1 "楼盘名字里的暗号"
+.\run.ps1 "the hidden code in apartment names"
 ```
 
 Output lands in `output/<timestamp>_<theme>/`:
@@ -98,7 +97,7 @@ python -m dig run --theme "..." --style-prompt "1990s Hong Kong comic, heavy lin
 **Derive a style from a reference image:**
 
 ```bash
-python -m dig style add --from-image reference.jpg --name 复古港漫 --id hk_retro
+python -m dig style add --from-image reference.jpg --name retro HK comic --id hk_retro
 python -m dig run --theme "..." --style hk_retro
 ```
 
@@ -121,9 +120,9 @@ The banner shape is part of the preset (`banner.shape`: `rounded` / `pill` / `pl
 ### 2. Your photo as the protagonist (personal IP)
 
 ```bash
-python -m dig character add --id my_ip --name 小圆 --photo me.jpg
+python -m dig character add --id my_ip --name Xiaoyuan --photo me.jpg
 python -m dig sheet --character my_ip --style retro_comic     # one image: look before you buy twelve
-python -m dig run --theme "第一次租房避坑" --character my_ip
+python -m dig run --theme "first-time rental pitfalls" --character my_ip
 ```
 
 Character consistency is layered — drop one and the character starts drifting:
@@ -156,9 +155,9 @@ real person, describe it inline in `script.json` and skip registration entirely:
 ```json
 {
   "character": {
-    "name": "阿鼠",
-    "sheet": "圆脸卡通小老鼠，浅米色短毛，永远穿同一件藏青色中山装：立领、胸前两个带盖口袋、白色窄袖口",
-    "signature": "藏青色中山装 + 白色窄袖口"
+    "name": "A Shu",
+    "sheet": "round-faced cartoon mouse, short light-cream fur, always wearing the same navy Zhongshan suit: stand collar, two flap chest pockets, narrow white cuffs",
+    "signature": "navy Zhongshan suit + narrow white cuffs"
   },
   "pages": [ "…" ]
 }
@@ -189,7 +188,7 @@ Redrawing one panel costs one panel:
 ```bash
 python -m dig reroll --script output/xxx/script.json --panel 7             # 1 billed call
 python -m dig reroll --script output/xxx/script.json --panel 3,9           # 2 billed calls
-python -m dig reroll --script output/xxx/script.json --panel 7 --scene "主角…" # new scene for that panel
+python -m dig reroll --script output/xxx/script.json --panel 7 --scene "protagonist..." # new scene for that panel
 ```
 
 Every other panel is reused as-is and the set is re-composited in place.
@@ -206,14 +205,14 @@ python -m dig validate --script my-script.json
 ```
 
 ```
-体检结果：2 个错误，1 个警告
+Check result: 2 errors, 1 warning
 
-✗ [caption-too-long] 第1张·第1格：短标题 23 个字宽，超过硬上限 18
-      改法：砍到 14 字以内：「1. 这是一个非常非常长的短」
-✗ [caption-duplicate] 第3张·第1格：和 第2张·第1格 的短标题完全重复：「重复的标题」
-      改法：每一格必须给新信息，重复一格就掉一批观众
-△ [no-character] 脚本：没有设定主角，整套图的人物会一格一个样
-      改法：在 script.json 里加 character 块（吉祥物不需要照片）
+✗ [caption-too-long] Image 1 · Panel 1: caption is 23 characters wide, over the hard limit of 18
+      Fix: cut it to 14 characters or fewer: "1. A very, very long short title"
+✗ [caption-duplicate] Image 3 · Panel 1: caption duplicates Image 2 · Panel 1: "duplicate title"
+      Fix: every panel must add new information; a repeated panel loses viewers
+△ [no-character] Script: no protagonist set; the cast will change from panel to panel
+      Fix: add a character block in script.json (mascots need no photo)
 ```
 
 `run`, `render` and `reroll` apply the same checks and **refuse to start** on errors.
@@ -221,9 +220,9 @@ Warnings print and continue. `--strict` promotes warnings to errors; `--no-valid
 the lot, which you should not need.
 
 What it catches: captions that won't fit on one banner line (**measured with the real font
-and layout**, so `iPhone 16 Pro Max 值不值` passes while sixteen CJK characters wrap),
+and layout**, so `Is the iPhone 16 Pro Max worth it` passes while sixteen CJK characters wrap),
 serial-numbered captions, duplicates, unbalanced quotes, captions that tease or ask instead
-of advising, captions that open with a label like `潜龙期：` that only the rest of the set
+of advising, captions that open with a label like `Rising phase:` that only the rest of the set
 explains, empty or too-thin scenes, scenes asking for text the renderer forbids (including
 《book titles》), uneven panel counts, page counts outside the workable range, a missing
 character block, and a `character_id` that isn't registered on this machine.
@@ -274,13 +273,13 @@ python -m dig batch --file topics.json --style retro_comic --character my_ip
 Topic file shape (full example in `examples/topics.sample.json`):
 
 ```json
-[{ "theme": "芒格的反向思考：想把日子过好，先避开会让人变惨的那几件事",
-   "source": "《穷查理宝典》· 第一讲 哈佛学校毕业演讲（反过来想）",
-   "angle": "把芒格开的'痛苦药方'反过来，一格一条今天就能照做的规矩",
-   "audience": "25-35岁想少走弯路的上班族", "pages": 6,
-   "title": "芒格的反向思考：先避开这几件事",
-   "beats_preview": ["别人赚得比你快，别眼红", "被人得罪了，别一直记仇"],
-   "hashtags": ["#芒格"] }]
+[{ "theme": "Munger's inversion: to live well, first avoid the things that make life worse",
+   "source": "Poor Charlie's Almanack · Talk 1, Harvard School commencement (invert)",
+   "angle": "Invert Munger's 'prescription for misery' into one rule per panel you can follow today",
+   "audience": "office workers aged 25-35 who want fewer wrong turns", "pages": 6,
+   "title": "Munger's inversion: first avoid these things",
+   "beats_preview": ["Don't envy others who earn faster", "Don't hold a grudge when someone wrongs you"],
+   "hashtags": ["#Munger"] }]
 ```
 
 That prompt carries a **source library**: for each of the reference books it lists only the
@@ -315,7 +314,7 @@ A two-step flow that mirrors the CLI's "check before you spend" rule:
 
 1. **Write** — enter a topic (or load the example script) and generate a script.
 2. **Edit** — every caption and scene is an editable row with a live width counter; the
-   full validation runs as you type, with the worst-case billed-call count. "出图" stays
+   full validation runs as you type, with the worst-case billed-call count. "generate image" stays
    disabled while there are errors.
 3. **Render** — panels appear as they finish, then the pages, `preview.jpg` and the
    ready-to-paste post copy.
@@ -362,7 +361,7 @@ Render the validated inversion script with the retro_comic style. First run dig 
 **Register a photo-based protagonist**
 
 ```text
-Register ./me.jpg once as character id my_ip with the display name 小圆. Run dig sheet for the retro_comic style and show me the result. Then prepare and validate a carousel about “Mistakes I made buying my first home”. Before any billed image call, report the page count and panel count.
+Register ./me.jpg once as character id my_ip with the display name Xiaoyuan. Run dig sheet for the retro_comic style and show me the result. Then prepare and validate a carousel about “Mistakes I made buying my first home”. Before any billed image call, report the page count and panel count.
 ```
 
 Every command is plain CLI with meaningful exit codes:
@@ -384,8 +383,8 @@ Then read `./out/task123/manifest.json`:
 ```json
 {
   "title": "...", "pages": 6, "panels_per_page": 2,
-  "style": { "id": "retro_comic", "name": "复古双格漫画" },
-  "character": { "id": "my_ip", "signature": "圆框眼镜 + 藏青外套" },
+  "style": { "id": "retro_comic", "name": "Retro two-panel comic" },
+  "character": { "id": "my_ip", "signature": "round glasses + navy jacket" },
   "files": ["01.jpg", "…", "06.jpg"],
   "preview": "preview.jpg",
   "stats": { "panels_ok": 12, "panels_total": 12, "seconds": 96.4 },
@@ -434,13 +433,13 @@ independently, so you can pair a cheap text model with the best image model.
 
 ```bash
 python -m dig run \
-  --theme "第一次租房避坑" \
+  --theme "first-time rental pitfalls" \
   --style retro_comic \          # style preset
   --character my_ip \            # fixed protagonist
-  --source "《穷查理宝典》· 反过来想" \  # which book idea the script follows
+  --source "Poor Charlie's Almanack · invert" \  # which book idea the script follows
   --pages 6 --panels 2 \         # 6 images, 2 panels each
-  --audience "刚毕业的大学生" \
-  --angle "从被坑过三次的过来人视角" \
+  --audience "recent graduates" \
+  --angle "from the perspective of someone burned three times" \
   --zip                          # also produce a zip
 ```
 
@@ -476,7 +475,7 @@ The page chrome — everything drawn locally — was measured the same way:
 
 | Finding | Fix | Result |
 |---|---|---|
-| On Linux (CI, agent containers) captions rendered with **Japanese glyph forms** — Noto CJK's collection index 0 is JP; all 10 captions of the example script were affected (房、没、次、退…) | Collection faces are picked by name, preferring Simplified Chinese; `doctor` prints the face and warns if it isn't SC | Noto Sans CJK **SC** Black |
+| On Linux (CI, agent containers) captions rendered with **Japanese glyph forms** — Noto CJK's collection index 0 is JP; all 10 captions of the example script were affected (common characters) | Collection faces are picked by name, preferring Simplified Chinese; `doctor` prints the face and warns if it isn't SC | Noto Sans CJK **SC** Black |
 | Caption text sat **10 px above centre** (48 px above the ink, 68 below) because the band was sized from the font's line height | Band sized and centred on the **ink box**, equal padding | Within 1 px in every preset; band 208 → 173–180 px, returning art |
 | One long caption shrank only its own banner, so a set showed two type sizes | One caption size per set (the size the longest caption needs) | Uniform banners; `validate` warns *before* a long line shrinks the set |
 | "Grain" was a 6% blend toward grey: black ink lifted to ~7, paper white down to ~247 | Zero-mean noise weighted to midtones | Pure black and white exactly untouched; midtone mean shift < 1 level |
@@ -510,7 +509,7 @@ stable and any single panel can be re-rolled without touching the others.
 | Captions render as boxes | No CJK font. Run `python -m dig doctor`; on Linux `apt-get install -y fonts-noto-cjk`, or drop a `.ttf` into `assets/fonts/` |
 | Some characters look Japanese | The font face isn't Simplified Chinese. `dig doctor` names the face; set `text.font` / `text.font_index` in `config.yaml` |
 | "missing API key" | Check `ARK_API_KEY` in `.env`, or use `--offline` |
-| "图像服务拒绝了请求（HTTP 401/403）" | Key invalid or expired, or the model isn't enabled on the account. The run stopped after one request |
+| "Image service rejected the request (HTTP 401/403)" | Key invalid or expired, or the model isn't enabled on the account. The run stopped after one request |
 | Some panels are placeholders | Those generations failed — see `errors` in `manifest.json`, then `dig reroll --panel N` |
 | One panel looks wrong | `dig reroll --script output/xxx/script.json --panel N` (optionally `--scene "…"`) |
 | Protagonist looks different per image | Check the sheet with `dig sheet`; make sure the script has a `character` block or a registered `character_id` |
