@@ -4,7 +4,7 @@ You are driving a generator that turns one topic into 5–7 postable Douyin caro
 Image generation **costs real money per panel** — a 12-panel set is 12 billed calls and
 6–10 minutes. Follow this file and you will not waste either.
 
-*[中文版见 README.zh-CN.md](README.zh-CN.md) — this file is the machine-facing contract.*
+*This file is the machine-facing contract.*
 
 ---
 
@@ -13,10 +13,10 @@ Image generation **costs real money per panel** — a 12-panel set is 12 billed 
 ```bash
 # 1. Prove the toolchain works. Free, offline, ~10 seconds.
 python -m dig doctor
-python -m dig run --theme "任意主题" --offline
+python -m dig run --theme "any topic" --offline
 
 # 2. Write the script yourself. Do NOT call a text model for this.
-#    Pick the idea from the source library first (prompts/topic_ideation_zh.md §四),
+#    Pick the idea from the source library first (prompts/topic_ideation_zh.md §4),
 #    then copy examples/script.minimal.json and replace the content.
 
 # 3. Check it BEFORE spending anything. Free.
@@ -54,13 +54,13 @@ output that cannot be posted.
 |---|---|
 | **Two beats per page**, always | The reference format is two panels per image. A single beat per page makes the panel portrait-shaped, halves the information density, and the model tends to paint a dead area under the banner |
 | Captions fit **one banner line** — 5–14 Chinese characters | `validate` measures the rendered width with the real font. A caption that wraps makes a tall banner that hides the art; one that needs a smaller size shrinks the **whole set** (one type size per set). Over 18 full-width characters is an error |
-| **Every caption stands alone** as plain counsel | Many viewers see one image by itself: the cover, a single swipe, a forwarded screenshot. A caption that needs the rest of the set, a book's term or a metaphor teaches them nothing. `dig validate` warns on teasers and questions (`caption-teaser`) and on label prefixes such as `潜龙期：` (`caption-label`) |
+| **Every caption stands alone** as plain counsel | Many viewers see one image by itself: the cover, a single swipe, a forwarded screenshot. A caption that needs the rest of the set, a book's term or a metaphor teaches them nothing. `dig validate` warns on teasers and questions (`caption-teaser`) and on label prefixes such as `Hidden-dragon phase:` (`caption-label`) |
 | **No serial numbers** in captions (`1.`, `第3格：`) | Viewers read content, not indices |
 | **Every caption unique** | This format dies on repetition — one repeated beat loses a chunk of the audience |
 | **Same beat count on every page** | Mixed 1/2-panel pages make the set look broken |
 | **5–7 pages** (3–10 accepted) | Fewer is thin, more never gets swiped to the end |
-| **Never ask for text in `scene`** | Panel prompts hard-forbid text in the image. "牌子上写着…" produces garbled glyphs. Captions are typeset locally afterwards |
-| **No 《book titles》 in `scene`** | "主角翻开《易经》" makes the model paint the title as garbled glyphs on the cover. Put the book in `source` and the post copy (`scene-book-title`) |
+| **Never ask for text in `scene`** | Panel prompts hard-forbid text in the image. "the sign says..." produces garbled glyphs. Captions are typeset locally afterwards |
+| **No book titles in `scene`** | "the protagonist opens the I Ching" makes the model paint the title as garbled glyphs on the cover. Put the book in `source` and the post copy (`scene-book-title`) |
 | **Always define a `character`** | Without one the protagonist changes on every panel — measured, not theoretical |
 
 ## The character rule, specifically
@@ -73,9 +73,9 @@ Put this in the script. No photo needed, no registration:
 
 ```json
 "character": {
-  "name": "阿鼠",
-  "sheet": "圆脸卡通小老鼠，浅米色短毛，两只又大又圆的耳朵、内耳浅粉，黑色圆眼睛，短圆鼻头，永远穿同一件藏青色中山装：立领、胸前两个带盖口袋、白色窄袖口，身形矮胖",
-  "signature": "藏青色中山装 + 白色窄袖口"
+  "name": "A Shu",
+  "sheet": "round-faced cartoon mouse, short light-cream fur, two big round ears with pale-pink inner ears, black round eyes, a short round nose, always wearing the same navy Zhongshan suit: stand collar, two flap chest pockets, narrow white cuffs, short and stout",
+  "signature": "navy Zhongshan suit + narrow white cuffs"
 }
 ```
 
@@ -106,13 +106,13 @@ The goal of every set: **a viewer finishes it knowing what to do.** Not "that wa
 interesting", but "I learned something, and next time I'll do exactly this."
 
 Frame topics from the books in the source library,
-[prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md) §四 取材库. It covers Munger,
-Schopenhauer, Wang Yangming, 曾仕强's 易经, Wu Jun, the 66 rules for dealing with people,
-the historical strategy stories, 黄帝内经 daily habits and the proverb collections. Each entry
+[prompts/topic_ideation_zh.md](prompts/topic_ideation_zh.md) §4 Source library. It covers Munger,
+Schopenhauer, Wang Yangming, Zeng Shiqiang's I Ching, Wu Jun, the 66 rules for dealing with people,
+the historical strategy stories, the Yellow Emperor's Inner Canon daily habits and the proverb collections. Each entry
 lists only ideas that turn directly into actions. Then:
 
-1. Pick **one specific idea** from one book, e.g. Munger's inversion or the six dragons of 乾.
-2. Put it in the script's `source` field: `"《穷查理宝典》· 反过来想"`. It is printed in
+1. Pick **one specific idea** from one book, e.g. Munger's inversion or the six dragons of Qian.
+2. Put it in the script's `source` field: `"Poor Charlie's Almanack · Invert"`. It is printed in
    `caption.txt` for the operator and never drawn.
 3. Choose a structure: rules, stages, steps, don't/do pairs, "when X, do Y", or the plain
    advice behind old sayings. The library says which structures suit each book.
@@ -125,9 +125,9 @@ Boundaries. Break one and the topic is out:
 - Teach people to protect themselves, get things done and get along. Never teach scheming,
   deceiving or getting back at people (the 66-rules book has plenty of that; skip it).
 - Health means daily habits only (sleep, food, mood, movement). No diagnosis, treatment,
-  remedies or dosages. Add "身体不适请及时就医" to the post copy.
+  remedies or dosages. Add "see a doctor promptly if unwell" to the post copy.
 - Money means habits and principles only. No stock picks, no promised returns.
-- No absolute claims (一定, 根治, 稳赚). 易经 is about how to act, never fortune-telling.
+- No absolute claims (certainly, root cure, guaranteed profit). the I Ching is about how to act, never fortune-telling.
 
 ## Writing good captions
 
@@ -138,23 +138,23 @@ no idea what the set is about, should understand it at a glance and learn someth
 So write each caption as **plain, straightforward counsel**, the way someone who has been
 through it would tell you: *the situation* + *what to do or not do*.
 
-- `刚入行，先把基本功练扎实` · `借钱给朋友，只借丢得起的数` · `本事不够时，别急着出风头`
+- `Just starting out, first make the basics solid` · `Lending to a friend, lend only what you can lose` · `When skills are not enough, don't rush to show off`
 - Everyday words only. No book concepts, classical phrases, jargon or metaphors on the
-  image, and no label prefixes like `潜龙期：` or `老话：`. The frame (乾卦六龙, the book,
+  image, and no label prefixes like `Hidden-dragon phase:` or `老话：`. The frame (the six dragons of Qian, the book,
   the proverb) goes in the title, the post copy and `note`. A saying that is already
-  everyday counsel, like `有借有还，再借不难`, can go on the image as it is.
-- Concrete, not a platitude. Name the situation and the action. `做人要低调` is true and
+  everyday counsel, like `borrow and return, and borrowing is easy again`, can go on the image as it is.
+- Concrete, not a platitude. Name the situation and the action. `Be low-key` is true and
   teaches nothing.
 - State the answer on the panel. No questions, no `第4个绝了`, no `看到最后`.
 - Aim for 9–13 characters: room for the situation and the advice without shrinking the font.
 
 | Instead of | Write |
 |---|---|
-| `潜龙期：闷头练本事` (label only the set explains) | `刚入行，先把基本功练扎实` |
-| `跃龙期：先小步试跳` (label and metaphor) | `想转行，先用业余时间试试` |
-| `量体裁衣：先算再花` (proverb as label) | `花钱之前，先算算自己挣多少` |
-| `心态决定一切` (no action) | `被批评时，先听完再解释` |
-| `你为什么总存不下钱？` (question) | `发工资当天，先存下一成` |
+| `Hidden-dragon phase: quietly build your skills` (a label only the set explains) | `Just starting out, first make the basics solid` |
+| `Leaping-dragon phase: try a small jump first` (label and metaphor) | `Want to change careers: try it in your spare time first` |
+| `Cut the cloth to fit: calculate before spending` (proverb as label) | `Before spending, calculate how much you earn` |
+| `Attitude decides everything` (no action) | `When criticized, hear it out before explaining` |
+| `Why can't you ever save money?` (question) | `On payday, save ten percent first` |
 
 The set must still read as one list. Give every caption the same shape, situation then
 advice, at roughly the same length. That parallelism is what makes people swipe to the end.
@@ -164,14 +164,14 @@ consecutive steps, or two responses to the same situation.
 
 First beat is the hook: the most useful or least obvious advice. Last beat is the payoff,
 the one line that sums up the set and is worth screenshotting. The `note` on each beat says
-why the advice works and carries the book's own term (`潜龙勿用：本事不够时，先蓄力`); it
+why the advice works and carries the book's own term (`The hidden dragon does not act: when skills are not enough, build strength first`); it
 feeds the voice-over and is never drawn.
 
 ## Writing good scenes
 
-`谁 + 在哪 + 在干什么 + 什么情绪`, 30–60 characters. Concrete and literal: the picture
+`who + where + doing what + what emotion`, 30–60 characters. Concrete and literal: the picture
 should state the caption, not allude to it. **Show the protagonist carrying out this panel's
-instruction**, in a situation viewers meet today. For a `别…` caption, draw the moment they
+instruction**, in a situation viewers meet today. For a `don't...` caption, draw the moment they
 stop, hold back or say no. Draw neither the book nor the historical figures; the story goes
 into `note` and the post copy. Vary interior/exterior and wide/close across the set while
 keeping the world consistent.
@@ -184,9 +184,9 @@ area under the banner. This was a measured failure, not a hypothetical: the gene
 checks every panel for it automatically (`run.quality_check`) and redraws once with a
 blunter prompt, but a scene with a described background avoids the problem outright.
 
-Good: `主角戴着黄色安全帽蹲在毛坯房里，伸手指着地面裸露的水管接口，身后是脚手架和两名正在抹灰的工人，天花板和墙面都是灰色混凝土，白天自然光`
+Good: `The protagonist crouches in a bare concrete room wearing a yellow hard hat, pointing at an exposed pipe joint in the floor, scaffolding and two plasterers behind him, grey concrete ceiling and walls, natural daylight`
 
-Thin: `主角在工地检查质量` — no environment, no camera distance, no light.
+Thin: `The protagonist inspects quality at a construction site` — no environment, no camera distance, no light.
 
 ---
 
