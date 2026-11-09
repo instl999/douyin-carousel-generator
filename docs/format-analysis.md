@@ -1,6 +1,6 @@
 # Reference breakdown: the two-panel explainer comic
 
-*[中文版](format-analysis.zh-CN.md)*
+
 
 Analysed from 72 images spanning four accounts/series: a Jerry-the-mouse folk-proverb
 series, two Squidward series (property-naming explainers and personality contrasts), and a
@@ -26,7 +26,7 @@ Every sample uses the identical structure:
 │ │      ╰──────────╯    │ │
 │ │        [art]         │ │
 │ └──────────────────────┘ │
-│      ♪ 抖音号：XXXXXX      │  ← footer watermark in the samples (this tool does not draw it)
+│      ♪ Account ID: XXXXXX      │  ← footer watermark in the samples (this tool does not draw it)
 └──────────────────────────┘
 ```
 
@@ -43,7 +43,7 @@ Every sample uses the identical structure:
 | Caption typeface | Heavy black sans (Source Han Sans Heavy class), pure black | Auto-detected system CJK bold; font collections pick the **Simplified Chinese** face |
 | Caption size | One size across the whole set | One size per set — the size the longest caption needs |
 | Caption length | **5–14 characters**, most commonly 6–10 | `validate` measures the rendered width; >18 full-width characters is an error |
-| Footer | Music-note glyph + `抖音号：xxx`, white with dark outline | Not drawn. The bottom margin equals the side margins |
+| Footer | Music-note glyph + `Account ID: xxx`, white with dark outline | Not drawn. The bottom margin equals the side margins |
 | Texture | Halftone + paper grain + vignette + worn edges | Four `texture` toggles; grain is zero-mean and leaves pure black/white untouched |
 
 Design units are pixels on a 1440×1920 canvas; every constant scales with the real canvas by
@@ -53,10 +53,10 @@ the tighter axis (×1.244 at the default 1792×2400).
 
 1. **One post = one theme = 10–14 parallel information points.** Six images × two panels
    = twelve points.
-   - Property series: 湾 / 岸 / 馆 / 府 / 城 / 山 — one glossary entry per panel.
-   - Personality series: 稳重的人 / 共情能力差 — one trait per panel, alternating positive
+   - Property series: Bay / Shore / Hall / Mansion / City / Mountain — one glossary entry per panel.
+   - Personality series: A steady person / Poor empathy — one trait per panel, alternating positive
      and negative.
-   - Proverb series: 「女婿本是墙外树」「再粗不是顶梁柱」 — the two panels of one image form
+   - Proverb series: "A son-in-law is a tree outside the wall" "However thick, it is not the ridgepole" — the two panels of one image form
      a couplet.
 
 2. **Sentence structure stays parallel across the whole set.** Either everything is
