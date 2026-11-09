@@ -1,6 +1,6 @@
 # Fonts
 
-*[中文版](README.zh-CN.md)*
+
 
 Captions need a heavy CJK sans. The program searches in this order:
 
@@ -20,7 +20,7 @@ face name (e.g. `Noto Sans CJK SC Black`).
 
 **Font collections (`.ttc`) pick the Simplified Chinese face automatically.** One `.ttc`
 often bundles Japanese, Korean, Simplified and Traditional variants whose glyphs differ:
-Noto Sans CJK's face 0 is **Japanese**, which draws 房、没、次、退 in Japanese forms. The
+Noto Sans CJK's face 0 is **Japanese**, which draws common characters in Japanese forms. The
 tool picks the face whose name says SC/CN/GB, and `doctor` warns if the chosen one isn't. You can
 also pin it in `config.yaml`:
 
