@@ -1,6 +1,6 @@
 # Prompts
 
-*[中文版](README.zh-CN.md)*
+
 
 | File | Purpose | Used by |
 |---|---|---|
@@ -33,20 +33,20 @@ account whose one promise is **"watch it, then do it"**. Then it:
    night before replying") passes.
 3. **Sets the caption voice: plain counsel that works on its own.** Many viewers see one
    image by itself, so each caption states the situation and what to do in everyday words,
-   like 刚入行，先把基本功练扎实. Book terms, classical phrases, metaphors and label prefixes
-   like 潜龙期： stay off the images; they go in the title, post copy and voice-over note.
+   like Just starting out, first make the basics solid. Book terms, classical phrases, metaphors and label prefixes
+   like Hidden-dragon phase: stay off the images; they go in the title, post copy and voice-over note.
 4. **Supplies six structures that teach**: rules, stages, steps, don't/do pairs, "when X, do
    Y", and the plain advice behind old sayings. At least four must be represented.
 5. **Carries a source library** of the reference books: Munger's *Poor Charlie's Almanack*,
-   Schopenhauer's *The Wisdom of Life*, Okada Takehiko's biography of Wang Yangming, 曾仕强's
-   lectures on the 易经, Wu Jun's 见识, a book of 66 rules for dealing with people, a six-volume
-   set of historical strategy stories, 曲黎敏 on the 黄帝内经, and two proverb and aphorism
+   Schopenhauer's *The Wisdom of Life*, Okada Takehiko's biography of Wang Yangming, Zeng Shiqiang's
+   lectures on the I Ching, Wu Jun's Insight, a book of 66 rules for dealing with people, a six-volume
+   set of historical strategy stories, Qu Limin on the Yellow Emperor's Inner Canon, and two proverb and aphorism
    collections. For each it lists only the ideas that turn directly into actions,
    paraphrased rather than quoted, with the structures they suit and an example topic.
    At least 9 of the 12 topics must come from it, drawing on at least 5 books.
 6. **Sets content boundaries**: teach self-protection, not scheming (the 66-rules book needs
    that filter); health means daily habits, never diagnosis or remedies; money means habits,
-   never stock picks; no absolute claims; the 易经 is about how to act, not fortune-telling;
+   never stock picks; no absolute claims; the I Ching is about how to act, not fortune-telling;
    no invented quotes.
 7. **Takes your account context**: niche, target audience, protagonist, art style, and
    topics you have already covered.
