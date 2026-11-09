@@ -1,6 +1,6 @@
 # Provider integration notes
 
-*[中文版](provider-notes.zh-CN.md)*
+
 
 **Status:** the **Volcengine AgentPlan** path (Seedream 5.0 Lite) has been exercised
 end-to-end against the live service — 18 real generations across three runs. Everything in
@@ -192,7 +192,7 @@ which meant any HTTP error wrote the full URL — key included — into `manifes
 
 [`dig/providers/mock.py`](../dig/providers/mock.py). No network. Placeholder art is
 generated deterministically from the prompt hash, and the text engine produces a
-structurally valid fake script by reading the `【生成参数】{...}` JSON block embedded in the
+structurally valid fake script by reading the `[Generation parameters]{...}` JSON block embedded in the
 prompt. It reports `billed = False`: its output is never written to the image cache and it
 skips the post-generation quality check (placeholders are flat colour blocks by design).
 
