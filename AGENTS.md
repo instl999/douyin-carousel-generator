@@ -55,7 +55,7 @@ output that cannot be posted.
 | **Two beats per page**, always | The reference format is two panels per image. A single beat per page makes the panel portrait-shaped, halves the information density, and the model tends to paint a dead area under the banner |
 | Captions fit **one banner line** — 5–14 Chinese characters | `validate` measures the rendered width with the real font. A caption that wraps makes a tall banner that hides the art; one that needs a smaller size shrinks the **whole set** (one type size per set). Over 18 full-width characters is an error |
 | **Every caption stands alone** as plain counsel | Many viewers see one image by itself: the cover, a single swipe, a forwarded screenshot. A caption that needs the rest of the set, a book's term or a metaphor teaches them nothing. `dig validate` warns on teasers and questions (`caption-teaser`) and on label prefixes such as `Hidden-dragon phase:` (`caption-label`) |
-| **No serial numbers** in captions (`1.`, `第3格：`) | Viewers read content, not indices |
+| **No serial numbers** in captions (`1.`, `Panel 3:`) | Viewers read content, not indices |
 | **Every caption unique** | This format dies on repetition — one repeated beat loses a chunk of the audience |
 | **Same beat count on every page** | Mixed 1/2-panel pages make the set look broken |
 | **5–7 pages** (3–10 accepted) | Fewer is thin, more never gets swiped to the end |
@@ -80,7 +80,7 @@ Put this in the script. No photo needed, no registration:
 ```
 
 `sheet` must be concrete and 60+ characters: face, hair, eyes, clothing, one accessory.
-Vague sheets do not hold. Then write every `scene` using **主角** to refer to them — never
+Vague sheets do not hold. Then write every `scene` using **the protagonist** to refer to them — never
 re-describe their appearance per panel, and never give them a different name mid-set.
 
 The tool also generates a **character sheet** — one scene-free portrait on a plain
@@ -140,12 +140,12 @@ through it would tell you: *the situation* + *what to do or not do*.
 
 - `Just starting out, first make the basics solid` · `Lending to a friend, lend only what you can lose` · `When skills are not enough, don't rush to show off`
 - Everyday words only. No book concepts, classical phrases, jargon or metaphors on the
-  image, and no label prefixes like `Hidden-dragon phase:` or `老话：`. The frame (the six dragons of Qian, the book,
+  image, and no label prefixes like `Hidden-dragon phase:` or `Old saying:`. The frame (the six dragons of Qian, the book,
   the proverb) goes in the title, the post copy and `note`. A saying that is already
   everyday counsel, like `borrow and return, and borrowing is easy again`, can go on the image as it is.
 - Concrete, not a platitude. Name the situation and the action. `Be low-key` is true and
   teaches nothing.
-- State the answer on the panel. No questions, no `第4个绝了`, no `看到最后`.
+- State the answer on the panel. No questions, no `the fourth one is amazing`, no `watch to the end`.
 - Aim for 9–13 characters: room for the situation and the advice without shrinking the font.
 
 | Instead of | Write |
